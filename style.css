@@ -16,3 +16,17 @@ html, body {
   width: 100vw;
   height: 100vh;
 }
+#hud {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  color: #fff;
+  font-family: Arial, sans-serif;
+  font-size: 18px;
+  font-weight: bold;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.7);
+  pointer-events: none;
+  z-index: 10;
+  white-space: nowrap;
+  }
