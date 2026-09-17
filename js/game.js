@@ -98,8 +98,12 @@ const GRAVITY = -20;
 const JUMP_VELOCITY = 15;
 const SLIDE_DURATION = 0.8;
 const SLIDE_HEIGHT_SCALE = 0.3;
-const WORLD_SPEED = 12;
 const LANE_SLIDE_SPEED = 8;
+
+// ---- SPEED (difficulty curve) ----
+const START_WORLD_SPEED = 12;         // slow and easy at the start
+const MAX_WORLD_SPEED = 24;           // hard cap so it never gets silly
+const SPEED_INCREASE_PER_SECOND = 0.3;// +0.3 units/sec every second
 
 // ---------------------------------------------------------------
 // 9. OBSTACLE CONSTANTS
@@ -117,10 +121,10 @@ const obstacleDepth = 1.2;
 // ---------------------------------------------------------------
 const COIN_RADIUS = 0.35;
 const COIN_VALUE = 10;
-const COIN_ROW_SPACING = 1.5;      // spacing along Z within a coin line
-const COIN_Y_GROUND = 1.0;         // hovering height above ground
-const COIN_Y_AIR = 3.0;            // floating above a low obstacle
-const COIN_SPIN_SPEED = 4;         // radians per second
+const COIN_ROW_SPACING = 1.5;
+const COIN_Y_GROUND = 1.0;
+const COIN_Y_AIR = 3.0;
+const COIN_SPIN_SPEED = 4;
 
 const coinGeometry = new THREE.CylinderGeometry(
   COIN_RADIUS, COIN_RADIUS, 0.12, 16
@@ -147,6 +151,11 @@ let score;
 let obstacles;
 let coins;
 let coinSpin;
+
+// Difficulty
+let worldSpeed;
+let runTime;         // seconds survived this run
+let speedLevel;      // 1, 2, 3...
 
 // ---------------------------------------------------------------
 // 12. HUD ELEMENTS
@@ -243,7 +252,6 @@ function spawnObstacleRow() {
 // ---------------------------------------------------------------
 function makeCoin() {
   const coin = new THREE.Mesh(coinGeometry, coinMaterial);
-  // Cylinder is vertical by default; rotate so the flat face points forward
   coin.rotation.x = Math.PI / 2;
   return coin;
 }
@@ -261,7 +269,6 @@ function spawnCoinLine(lane, zStart, count, yLevel) {
 }
 
 function spawnCoins() {
-  // Choose 1 or 2 lanes to have coins
   const lanes = [0, 1, 2];
   for (let i = lanes.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
@@ -272,13 +279,12 @@ function spawnCoins() {
   const chosenLanes = lanes.slice(0, coinLaneCount);
 
   chosenLanes.forEach((lane) => {
-    const count = 3 + Math.floor(Math.random() * 3); // 3–5 coins
+    const count = 3 + Math.floor(Math.random() * 3);
     const heightChoice = Math.random();
     let yLevel;
     if (heightChoice < 0.6) yLevel = COIN_Y_GROUND;
-    else                    yLevel = COIN_Y_AIR;   // floating (needs jump)
+    else                    yLevel = COIN_Y_AIR;
 
-    // Start coins a bit after the obstacle spawn point
     spawnCoinLine(lane, SPAWN_Z - 5, count, yLevel);
   });
 }
@@ -406,9 +412,6 @@ function checkObstacleCollisions() {
 }
 
 function checkCoinCollisions() {
-  const playerTop = player.position.y + (PLAYER_HEIGHT * player.scale.y) / 2;
-  const playerBottom = player.position.y - (PLAYER_HEIGHT * player.scale.y) / 2;
-
   for (let i = coins.length - 1; i >= 0; i--) {
     const c = coins[i];
 
@@ -419,11 +422,9 @@ function checkCoinCollisions() {
     if (dx > 0.7) continue;
 
     const dy = Math.abs(c.position.y - player.position.y);
-    // Player's vertical "extent" is half its height; add coin radius
     const verticalReach = (PLAYER_HEIGHT * player.scale.y) / 2 + COIN_RADIUS;
     if (dy > verticalReach) continue;
 
-    // Collected!
     scene.remove(c);
     coins.splice(i, 1);
     score += COIN_VALUE;
@@ -454,20 +455,16 @@ function gameOver() {
 }
 
 function resetGame() {
-  // Clear obstacles
   obstacles.forEach((o) => scene.remove(o));
   obstacles.length = 0;
 
-  // Clear coins
   coins.forEach((c) => scene.remove(c));
   coins.length = 0;
 
-  // Reset player
   currentLane = STARTING_LANE;
   player.position.set(LANE_X[STARTING_LANE], PLAYER_HEIGHT / 2, 0);
   player.scale.y = 1;
 
-  // Reset state
   isJumping = false;
   velocityY = 0;
   isSliding = false;
@@ -477,15 +474,16 @@ function resetGame() {
   score = 0;
   gameOverActive = false;
 
-  // Reset road
+  worldSpeed = START_WORLD_SPEED;
+  runTime = 0;
+  speedLevel = 1;
+
   road.position.z = -ROAD_LENGTH / 2 + 10;
 
-  // Reset UI
   scoreEl.textContent = 'Score: 0';
   gameOverEl.classList.add('hidden');
   flashHud('Go! 🏃');
 
-  // Grace period before first spawns
   spawnTimer = -1.2;
   coinSpawnTimer = -0.6;
 }
@@ -513,28 +511,36 @@ function animate() {
 
   const delta = Math.min(clock.getDelta(), 0.1);
 
-  // World scroll
-  road.position.z += WORLD_SPEED * delta;
+  // ---- Road scroll (uses current worldSpeed) ----
+  road.position.z += worldSpeed * delta;
   if (road.position.z > ROAD_LENGTH / 2 + 10) {
     road.position.z -= ROAD_LENGTH;
   }
 
   stripeGroup.children.forEach((stripe) => {
-    stripe.position.z += WORLD_SPEED * delta;
+    stripe.position.z += worldSpeed * delta;
     if (stripe.position.z > 6) {
       stripe.position.z -= STRIPE_COUNT * STRIPE_SPACING;
     }
   });
 
   if (!gameOverActive) {
-    // Lane slide
+    // ---- Difficulty curve ----
+    runTime += delta;
+    worldSpeed = Math.min(
+      START_WORLD_SPEED + runTime * SPEED_INCREASE_PER_SECOND,
+      MAX_WORLD_SPEED
+    );
+    speedLevel = 1 + Math.floor(runTime / 5); // bumps every 5 seconds
+
+    // ---- Lane slide ----
     const targetX = LANE_X[currentLane];
     player.position.x += (targetX - player.position.x) * LANE_SLIDE_SPEED * delta;
     if (Math.abs(targetX - player.position.x) < 0.001) {
       player.position.x = targetX;
     }
 
-    // Jump
+    // ---- Jump ----
     if (isJumping) {
       velocityY += GRAVITY * delta;
       player.position.y += velocityY * delta;
@@ -545,7 +551,7 @@ function animate() {
       }
     }
 
-    // Slide timer
+    // ---- Slide ----
     if (isSliding) {
       slideTimer -= delta;
       if (slideTimer <= 0) {
@@ -559,42 +565,40 @@ function animate() {
       player.position.y = halfHeight;
     }
 
-    // Score over time
+    // ---- Score ----
     score += SCORE_PER_SECOND * delta;
     scoreEl.textContent = 'Score: ' + Math.floor(score);
 
-    // Spawn obstacles
+    // ---- Spawn obstacles ----
     spawnTimer += delta;
     if (spawnTimer >= SPAWN_INTERVAL) {
       spawnTimer = 0;
       spawnObstacleRow();
     }
 
-    // Spawn coins
+    // ---- Spawn coins ----
     coinSpawnTimer += delta;
     if (coinSpawnTimer >= SPAWN_INTERVAL) {
       coinSpawnTimer = 0;
       spawnCoins();
     }
 
-    // Move obstacles
+    // ---- Move obstacles ----
     for (let i = obstacles.length - 1; i >= 0; i--) {
       const o = obstacles[i];
-      o.position.z += WORLD_SPEED * delta;
+      o.position.z += worldSpeed * delta;
       if (o.position.z > DESPAWN_Z) {
         scene.remove(o);
         obstacles.splice(i, 1);
       }
     }
 
-    // Move coins + spin them
+    // ---- Move & spin coins ----
     coinSpin += COIN_SPIN_SPEED * delta;
     for (let i = coins.length - 1; i >= 0; i--) {
       const c = coins[i];
-      c.position.z += WORLD_SPEED * delta;
-      // Spin around the world Y axis so it looks like a rotating coin
+      c.position.z += worldSpeed * delta;
       c.rotation.y = coinSpin;
-      // Bob gently
       c.position.y = c.userData.baseY + Math.sin(coinSpin * 2 + c.position.z) * 0.08;
 
       if (c.position.z > DESPAWN_Z) {
@@ -603,16 +607,18 @@ function animate() {
       }
     }
 
-    // Collisions
+    // ---- Collisions ----
     checkObstacleCollisions();
     checkCoinCollisions();
   }
 
+  // ---- Debug ----
   debug.textContent =
-    'lane: ' + currentLane +
-    ' | obstacles: ' + obstacles.length +
+    'L' + speedLevel +
+    ' | spd: ' + worldSpeed.toFixed(1) +
+    ' | t: ' + runTime.toFixed(0) + 's' +
+    ' | obs: ' + obstacles.length +
     ' | coins: ' + coins.length +
-    ' | score: ' + Math.floor(score) +
     ' | ' + (gameOverActive ? 'GAME OVER' : 'running');
 
   renderer.render(scene, camera);
