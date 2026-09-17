@@ -184,18 +184,14 @@ html, body {
   margin-top: 4px;
 }
 
-/* ---------- Developer credit ---------- */
+/* ---------- Developer credit (kept for reference, not used now) ---------- */
 .developed-credit {
-  position: absolute;
-  bottom: 24px;
-  left: 50%;
-  transform: translateX(-50%);
-  color: #ffcb6b !important;
-  font-size: 15px !important;
-  font-weight: bold !important;
-  letter-spacing: 1px;
-  white-space: nowrap;
-  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.8);
+  color: #ffcb6b;
+  font-size: 16px;
+  font-weight: bold;
+  letter-spacing: 1.5px;
+  margin-top: 40px;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.9);
 }
 
 /* ---------- Buttons ---------- */
