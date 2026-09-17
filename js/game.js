@@ -85,12 +85,10 @@ const PLAYER_WIDTH = 1;
 const PLAYER_HEIGHT = 2;
 const PLAYER_DEPTH = 1;
 
-// Player group — everything inside moves with the player
 const player = new THREE.Group();
 player.position.set(LANE_X[STARTING_LANE], 0, 0);
 scene.add(player);
 
-// Fallback box (visible until the model loads)
 const fallbackBox = new THREE.Mesh(
   new THREE.BoxGeometry(PLAYER_WIDTH, PLAYER_HEIGHT, PLAYER_DEPTH),
   new THREE.MeshStandardMaterial({ color: 0xff6600 })
@@ -98,7 +96,6 @@ const fallbackBox = new THREE.Mesh(
 fallbackBox.position.y = PLAYER_HEIGHT / 2;
 player.add(fallbackBox);
 
-// Character model (replaces fallback when loaded)
 let characterModel = null;
 let mixer = null;
 const actions = {};
@@ -210,14 +207,13 @@ function setBestScore(v) {
 // ---------------------------------------------------------------
 // 14. CHARACTER LOADING
 // ---------------------------------------------------------------
-// Placeholder character (Three.js example, CC0 license).
-// Swap this URL for a human character .glb later.
+// ⬅️ CHANGED — now using the human Soldier character
 const CHARACTER_URL =
-  'https://threejs.org/examples/models/gltf/RobotExpressive/RobotExpressive.glb';
+  'https://threejs.org/examples/models/gltf/Soldier.glb';
 
-// Model tuning — tweak these if the character looks wrong
-const CHARACTER_SCALE = 0.3;    // smaller = smaller character
-const CHARACTER_ROTATION_Y = Math.PI; // 0 = face away from camera
+// Model tuning — Soldier's native size is roughly the right scale
+const CHARACTER_SCALE = 1.0;       // ⬅️ CHANGED
+const CHARACTER_ROTATION_Y = 0;    // ⬅️ CHANGED — will adjust after seeing it
 
 const loader = new GLTFLoader();
 
@@ -239,18 +235,19 @@ loader.load(
       actions[clip.name] = mixer.clipAction(clip);
     });
 
-    console.log('Loaded animations:', Object.keys(actions));
+    // ⬅️ NEW — print animation names to the debug panel so we can see them
+    const animNames = Object.keys(actions);
+    console.log('Loaded animations:', animNames);
+    flashHud('Anims: ' + animNames.join(', '));
 
     const runName =
       pickAnimation(['Run', 'Running', 'run', 'Walk', 'walk']) ||
-      Object.keys(actions)[0];
+      animNames[0];
 
     if (runName) {
       currentAction = actions[runName];
       currentAction.play();
     }
-
-    flashHud('Character loaded 🏃');
   },
   undefined,
   (err) => {
@@ -386,7 +383,7 @@ function tryJump() {
   isJumping = true;
   velocityY = JUMP_VELOCITY;
   flashHud('Jump 👆');
-  playAnimation(['Jump', 'Jumping', 'jump']);
+  playAnimation(['Jump', 'Jumping', 'jump', 'RunJump']);
 }
 
 function trySlide() {
