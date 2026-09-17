@@ -3,13 +3,15 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="mobile-web-app-capable" content="yes" />
   <title>Nigerian Runner</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <div id="game-container"></div>
+  <div id="game-container">
+    <div id="touch-layer"></div>
+  </div>
 
-  <!-- Load Three.js from a reliable CDN -->
   <script type="importmap">
   {
     "imports": {
@@ -18,7 +20,6 @@
   }
   </script>
 
-  <!-- Our game code -->
   <script type="module" src="js/game.js"></script>
 </body>
 </html>
