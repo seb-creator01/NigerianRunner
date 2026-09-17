@@ -336,7 +336,6 @@ let speedLevel;
 
 let playerVisualY = 0;
 
-// 'menu' | 'playing' | 'paused' | 'gameover'
 let gameState = 'menu';
 
 // ---------------------------------------------------------------
@@ -376,7 +375,6 @@ function flashHud(text) {
 }
 
 function showScreen(el) {
-  // Hide all overlays, then show the requested one (or none)
   [mainMenuEl, settingsMenuEl, pauseMenuEl, gameOverEl].forEach((o) => {
     o.classList.add('hidden');
   });
@@ -416,9 +414,7 @@ function loadSettings() {
     const s = JSON.parse(raw);
     if (typeof s.sfxEnabled === 'boolean') sfxEnabled = s.sfxEnabled;
     if (typeof s.musicEnabled === 'boolean') musicEnabled = s.musicEnabled;
-  } catch (e) {
-    // ignore corrupt settings
-  }
+  } catch (e) {}
 }
 
 function saveSettings() {
@@ -436,9 +432,9 @@ function updateSettingsUI() {
 }
 
 // ---------------------------------------------------------------
-// 14. CHARACTER LOADING
+// 14. CHARACTER LOADING (with diagnostics)
 // ---------------------------------------------------------------
-const CHARACTER_URL = 'Soldier.glb';
+const CHARACTER_URL = 'https://seb-creator01.github.io/NigerianRunner/Soldier.glb';
 
 const CHARACTER_SCALE = 1.0;
 const CHARACTER_ROTATION_Y = 0;
@@ -449,6 +445,7 @@ const loader = new GLTFLoader();
 loader.load(
   CHARACTER_URL,
   (gltf) => {
+    // SUCCESS
     characterModel = gltf.scene;
 
     characterModel.scale.set(CHARACTER_SCALE, CHARACTER_SCALE, CHARACTER_SCALE);
@@ -470,11 +467,23 @@ loader.load(
       currentAction = actions[ANIM_RUN];
       currentAction.play();
     }
+
+    flashHud('✓ Character loaded! Anims: ' + Object.keys(actions).join(','));
   },
-  undefined,
+  (progress) => {
+    // PROGRESS
+    if (progress.total) {
+      const pct = Math.floor((progress.loaded / progress.total) * 100);
+      flashHud('Loading character: ' + pct + '%');
+    } else {
+      flashHud('Loading character: ' + progress.loaded + ' bytes');
+    }
+  },
   (err) => {
+    // ERROR — show the actual error on screen
     console.error('Failed to load character:', err);
-    flashHud('Character failed — using box');
+    const msg = err && err.message ? err.message : String(err);
+    flashHud('❌ Load failed: ' + msg);
   }
 );
 
@@ -755,7 +764,6 @@ function gameOver() {
 // 21. START / RESET / PAUSE / MENU
 // ---------------------------------------------------------------
 function startRun() {
-  // Clear anything from the previous run
   obstacles.forEach((o) => scene.remove(o));
   obstacles.length = 0;
 
@@ -789,7 +797,6 @@ function startRun() {
 
   scoreEl.textContent = 'Score: 0';
 
-  // Short grace period before the first spawns
   spawnTimer = -1.2;
   coinSpawnTimer = -0.6;
 
@@ -800,7 +807,6 @@ function startRun() {
 }
 
 function goToMainMenu() {
-  // Clear world
   obstacles.forEach((o) => scene.remove(o));
   obstacles.length = 0;
   coins.forEach((c) => scene.remove(c));
@@ -1025,10 +1031,8 @@ function animate() {
 
   const delta = Math.min(clock.getDelta(), 0.1);
 
-  // Always animate the mixer (so idle animation plays on menu)
   if (mixer) mixer.update(delta);
 
-  // World scroll only when playing
   if (gameState === 'playing') {
     road.position.z += worldSpeed * delta;
     if (road.position.z > ROAD_LENGTH / 2 + 10) {
