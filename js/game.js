@@ -336,7 +336,7 @@ let speedLevel;
 
 let playerVisualY = 0;
 
-let gameState = 'menu';
+let gameState = 'loading'; // 'loading' | 'menu' | 'playing' | 'paused' | 'gameover'
 
 // ---------------------------------------------------------------
 // 12. HUD ELEMENTS
@@ -351,6 +351,9 @@ debug.id = 'debug';
 document.body.appendChild(debug);
 
 const scoreEl = document.getElementById('score');
+const loadingScreenEl = document.getElementById('loading-screen');
+const loadingBarFillEl = document.getElementById('loading-bar-fill');
+const loadingTextEl = document.getElementById('loading-text');
 const mainMenuEl = document.getElementById('main-menu');
 const menuBestEl = document.getElementById('menu-best');
 const settingsMenuEl = document.getElementById('settings-menu');
@@ -375,7 +378,13 @@ function flashHud(text) {
 }
 
 function showScreen(el) {
-  [mainMenuEl, settingsMenuEl, pauseMenuEl, gameOverEl].forEach((o) => {
+  [
+    loadingScreenEl,
+    mainMenuEl,
+    settingsMenuEl,
+    pauseMenuEl,
+    gameOverEl,
+  ].forEach((o) => {
     o.classList.add('hidden');
   });
   if (el) el.classList.remove('hidden');
@@ -432,7 +441,7 @@ function updateSettingsUI() {
 }
 
 // ---------------------------------------------------------------
-// 14. CHARACTER LOADING (with diagnostics)
+// 14. CHARACTER LOADING
 // ---------------------------------------------------------------
 const CHARACTER_URL = 'https://seb-creator01.github.io/NigerianRunner/Soldier.glb';
 
@@ -442,10 +451,39 @@ const ANIM_RUN = 'Run';
 
 const loader = new GLTFLoader();
 
+let characterReady = false;
+
+// Disable PLAY until ready
+playBtn.disabled = true;
+
+// Update the loading bar UI
+function setLoadingProgress(pct) {
+  const clamped = Math.max(0, Math.min(100, pct));
+  loadingBarFillEl.style.width = clamped + '%';
+  loadingTextEl.textContent = 'Loading… ' + Math.floor(clamped) + '%';
+}
+
+// Show an error state on the loading screen with a retry option
+function showLoadError(msg) {
+  loadingTextEl.innerHTML =
+    '⚠️ Could not load character.<br><small>' +
+    (msg || 'Unknown error') +
+    '</small>';
+  loadingBarFillEl.style.background = '#cc2222';
+  loadingBarFillEl.style.width = '100%';
+}
+
+function finishLoading() {
+  characterReady = true;
+  playBtn.disabled = false;
+  gameState = 'menu';
+  showScreen(mainMenuEl);
+  updatePauseBtnVisibility();
+}
+
 loader.load(
   CHARACTER_URL,
   (gltf) => {
-    // SUCCESS
     characterModel = gltf.scene;
 
     characterModel.scale.set(CHARACTER_SCALE, CHARACTER_SCALE, CHARACTER_SCALE);
@@ -468,22 +506,30 @@ loader.load(
       currentAction.play();
     }
 
-    flashHud('✓ Character loaded! Anims: ' + Object.keys(actions).join(','));
+    setLoadingProgress(100);
+    // Small delay so the 100% bar is visible for a moment
+    setTimeout(finishLoading, 250);
   },
   (progress) => {
-    // PROGRESS
-    if (progress.total) {
-      const pct = Math.floor((progress.loaded / progress.total) * 100);
-      flashHud('Loading character: ' + pct + '%');
-    } else {
-      flashHud('Loading character: ' + progress.loaded + ' bytes');
+    // Progress — clamp to 99% until the success callback fires
+    if (progress.total && progress.total > 0) {
+      const rawPct = (progress.loaded / progress.total) * 100;
+      setLoadingProgress(Math.min(rawPct, 99));
+    } else if (progress.loaded) {
+      // Fallback for streams without content-length
+      const mb = (progress.loaded / 1048576).toFixed(1);
+      setLoadingProgress(Math.min(mb * 30, 99)); // rough guess
     }
   },
   (err) => {
-    // ERROR — show the actual error on screen
     console.error('Failed to load character:', err);
     const msg = err && err.message ? err.message : String(err);
-    flashHud('❌ Load failed: ' + msg);
+    showLoadError(msg);
+    // Still allow the game to run with the fallback box after a delay
+    setTimeout(() => {
+      finishLoading();
+      flashHud('⚠️ Using fallback — reload to retry');
+    }, 2500);
   }
 );
 
@@ -859,6 +905,7 @@ function resumeGame() {
 // 22. BUTTON WIRING
 // ---------------------------------------------------------------
 playBtn.addEventListener('click', () => {
+  if (!characterReady) return;
   initAudio();
   unlockAudio();
   startRun();
@@ -914,7 +961,7 @@ coinSpin = 0;
 loadSettings();
 updateSettingsUI();
 menuBestEl.textContent = 'Best Score: ' + getBestScore();
-showScreen(mainMenuEl);
+showScreen(loadingScreenEl);
 updatePauseBtnVisibility();
 
 // ---------------------------------------------------------------
@@ -1171,4 +1218,3 @@ window.addEventListener('resize', () => {
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
 });
-
