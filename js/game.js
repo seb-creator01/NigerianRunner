@@ -12,7 +12,6 @@ container.appendChild(renderer.domElement);
 
 // ---------------------------------------------------------------
 // 2. SCENE + FOG
-// Fog hides the far end of the road so we don't need infinite geometry
 // ---------------------------------------------------------------
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x87ceeb);
@@ -41,13 +40,12 @@ scene.add(sunLight);
 
 // ---------------------------------------------------------------
 // 5. LANES
-// Three lanes at x = -2, 0, +2. The player stays at z = 0.
 // ---------------------------------------------------------------
 const LANE_X = [-2, 0, 2];
-const STARTING_LANE = 1; // middle lane
+const STARTING_LANE = 1;
 
 // ---------------------------------------------------------------
-// 6. ROAD — one long strip. We will scroll it backwards to fake motion.
+// 6. ROAD
 // ---------------------------------------------------------------
 const ROAD_LENGTH = 200;
 const ROAD_WIDTH = 7;
@@ -55,20 +53,19 @@ const ROAD_WIDTH = 7;
 const roadGeometry = new THREE.BoxGeometry(ROAD_WIDTH, 0.2, ROAD_LENGTH);
 const roadMaterial = new THREE.MeshStandardMaterial({ color: 0x444444 });
 const road = new THREE.Mesh(roadGeometry, roadMaterial);
-road.position.set(0, 0, -ROAD_LENGTH / 2 + 10); // stretch away from camera
+road.position.set(0, 0, -ROAD_LENGTH / 2 + 10);
 scene.add(road);
 
-// Lane marker stripes — thin white boxes we will scroll with the road
+// Lane marker stripes
 const stripeGroup = new THREE.Group();
 scene.add(stripeGroup);
 
 const stripeGeometry = new THREE.BoxGeometry(0.08, 0.21, 2);
 const stripeMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff });
 
-const STRIPE_SPACING = 4; // distance between stripes along Z
-const STRIPE_COUNT = 60;  // how many stripes per divider
+const STRIPE_SPACING = 4;
+const STRIPE_COUNT = 60;
 
-// Two dividers: one between lane 0/1 (x=-1), one between lane 1/2 (x=+1)
 [-1, 1].forEach((xPos) => {
   for (let i = 0; i < STRIPE_COUNT; i++) {
     const stripe = new THREE.Mesh(stripeGeometry, stripeMaterial);
@@ -78,7 +75,7 @@ const STRIPE_COUNT = 60;  // how many stripes per divider
 });
 
 // ---------------------------------------------------------------
-// 7. PLAYER — placeholder box. It stays at z = 0 forever.
+// 7. PLAYER
 // ---------------------------------------------------------------
 const playerGeometry = new THREE.BoxGeometry(1, 2, 1);
 const playerMaterial = new THREE.MeshStandardMaterial({ color: 0xff6600 });
@@ -88,15 +85,13 @@ scene.add(player);
 
 // ---------------------------------------------------------------
 // 8. WORLD SCROLL SPEED
-// The world moves toward the player at this speed (units per second).
-// Later, this will increase over time to make the game harder.
 // ---------------------------------------------------------------
 const WORLD_SPEED = 12;
 
 // ---------------------------------------------------------------
-// 9. SWIPE DETECTION (just logs for now — no lane movement yet)
+// 9. SWIPE DETECTION + HUD
 // ---------------------------------------------------------------
-const SWIPE_THRESHOLD = 30; // minimum pixels to count as a swipe
+const SWIPE_THRESHOLD = 30;
 let touchStartX = 0;
 let touchStartY = 0;
 
@@ -109,31 +104,48 @@ function flashHud(text) {
   hud.textContent = text;
 }
 
+function handleTouchStart(clientX, clientY) {
+  touchStartX = clientX;
+  touchStartY = clientY;
+}
+
+function handleTouchEnd(clientX, clientY) {
+  const dx = clientX - touchStartX;
+  const dy = clientY - touchStartY;
+
+  if (Math.abs(dx) < SWIPE_THRESHOLD && Math.abs(dy) < SWIPE_THRESHOLD) {
+    flashHud('Tap 👆');
+    return;
+  }
+
+  if (Math.abs(dx) > Math.abs(dy)) {
+    flashHud(dx > 0 ? 'Swipe RIGHT 👉' : 'Swipe LEFT 👈');
+  } else {
+    flashHud(dy > 0 ? 'Swipe DOWN 👇' : 'Swipe UP 👆');
+  }
+}
+
+// Touch (mobile)
 window.addEventListener('touchstart', (e) => {
   const t = e.changedTouches[0];
-  touchStartX = t.clientX;
-  touchStartY = t.clientY;
-});
+  handleTouchStart(t.clientX, t.clientY);
+}, { passive: true });
 
 window.addEventListener('touchend', (e) => {
   const t = e.changedTouches[0];
-  const dx = t.clientX - touchStartX;
-  const dy = t.clientY - touchStartY;
+  handleTouchEnd(t.clientX, t.clientY);
+}, { passive: true });
 
-  if (Math.abs(dx) < SWIPE_THRESHOLD && Math.abs(dy) < SWIPE_THRESHOLD) return;
-
-  if (Math.abs(dx) > Math.abs(dy)) {
-    if (dx > 0) flashHud('Swipe RIGHT 👉');
-    else        flashHud('Swipe LEFT 👈');
-  } else {
-    if (dy > 0) flashHud('Swipe DOWN 👇');
-    else        flashHud('Swipe UP 👆');
-  }
+// Mouse (for testing on desktop)
+window.addEventListener('mousedown', (e) => {
+  handleTouchStart(e.clientX, e.clientY);
+});
+window.addEventListener('mouseup', (e) => {
+  handleTouchEnd(e.clientX, e.clientY);
 });
 
 // ---------------------------------------------------------------
 // 10. GAME LOOP
-// The player never moves. We scroll the world toward the camera.
 // ---------------------------------------------------------------
 const clock = new THREE.Clock();
 
@@ -142,13 +154,11 @@ function animate() {
 
   const delta = clock.getDelta();
 
-  // Move the road backward (toward +Z), then wrap it when it's too far.
   road.position.z += WORLD_SPEED * delta;
   if (road.position.z > ROAD_LENGTH / 2 + 10) {
     road.position.z -= ROAD_LENGTH;
   }
 
-  // Scroll each lane stripe, wrapping back when it passes the camera.
   stripeGroup.children.forEach((stripe) => {
     stripe.position.z += WORLD_SPEED * delta;
     if (stripe.position.z > 6) {
@@ -169,4 +179,3 @@ window.addEventListener('resize', () => {
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
 });
-
