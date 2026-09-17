@@ -190,11 +190,12 @@ html, body {
   bottom: 24px;
   left: 50%;
   transform: translateX(-50%);
-  color: rgba(255, 255, 255, 0.55) !important;
-  font-size: 13px !important;
-  font-weight: normal !important;
+  color: #ffcb6b !important;
+  font-size: 15px !important;
+  font-weight: bold !important;
   letter-spacing: 1px;
   white-space: nowrap;
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.8);
 }
 
 /* ---------- Buttons ---------- */
