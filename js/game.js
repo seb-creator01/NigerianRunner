@@ -91,7 +91,7 @@ player.position.set(LANE_X[STARTING_LANE], PLAYER_HEIGHT / 2, 0);
 scene.add(player);
 
 // ---------------------------------------------------------------
-// 8. TUNING CONSTANTS
+// 8. TUNING
 // ---------------------------------------------------------------
 const GROUND_Y = PLAYER_HEIGHT / 2;
 const GRAVITY = -20;
@@ -113,7 +113,27 @@ const FULL_HEIGHT = 2.5;
 const obstacleDepth = 1.2;
 
 // ---------------------------------------------------------------
-// 10. GAME STATE (all resettable)
+// 10. COIN CONSTANTS
+// ---------------------------------------------------------------
+const COIN_RADIUS = 0.35;
+const COIN_VALUE = 10;
+const COIN_ROW_SPACING = 1.5;      // spacing along Z within a coin line
+const COIN_Y_GROUND = 1.0;         // hovering height above ground
+const COIN_Y_AIR = 3.0;            // floating above a low obstacle
+const COIN_SPIN_SPEED = 4;         // radians per second
+
+const coinGeometry = new THREE.CylinderGeometry(
+  COIN_RADIUS, COIN_RADIUS, 0.12, 16
+);
+const coinMaterial = new THREE.MeshStandardMaterial({
+  color: 0xffcc00,
+  emissive: 0x664400,
+  metalness: 0.7,
+  roughness: 0.3,
+});
+
+// ---------------------------------------------------------------
+// 11. GAME STATE
 // ---------------------------------------------------------------
 let currentLane;
 let isJumping;
@@ -121,14 +141,15 @@ let velocityY;
 let isSliding;
 let slideTimer;
 let spawnTimer;
+let coinSpawnTimer;
 let gameOverActive;
 let score;
-let obstacles; // active obstacles
-
-const obstaclePool = []; // recycled meshes
+let obstacles;
+let coins;
+let coinSpin;
 
 // ---------------------------------------------------------------
-// 11. HUD ELEMENTS
+// 12. HUD ELEMENTS
 // ---------------------------------------------------------------
 const hud = document.createElement('div');
 hud.id = 'hud';
@@ -150,7 +171,7 @@ function flashHud(text) {
 }
 
 // ---------------------------------------------------------------
-// 12. BEST SCORE (localStorage)
+// 13. BEST SCORE
 // ---------------------------------------------------------------
 const BEST_KEY = 'nigerianRunner.bestScore';
 
@@ -164,7 +185,7 @@ function setBestScore(v) {
 }
 
 // ---------------------------------------------------------------
-// 13. OBSTACLE FACTORY
+// 14. OBSTACLE FACTORY
 // ---------------------------------------------------------------
 function makeObstacleMesh(type) {
   let mesh;
@@ -218,7 +239,52 @@ function spawnObstacleRow() {
 }
 
 // ---------------------------------------------------------------
-// 14. ACTIONS
+// 15. COIN SPAWNING
+// ---------------------------------------------------------------
+function makeCoin() {
+  const coin = new THREE.Mesh(coinGeometry, coinMaterial);
+  // Cylinder is vertical by default; rotate so the flat face points forward
+  coin.rotation.x = Math.PI / 2;
+  return coin;
+}
+
+function spawnCoinLine(lane, zStart, count, yLevel) {
+  for (let i = 0; i < count; i++) {
+    const coin = makeCoin();
+    coin.position.x = LANE_X[lane];
+    coin.position.z = zStart - i * COIN_ROW_SPACING;
+    coin.position.y = yLevel;
+    coin.userData.baseY = yLevel;
+    scene.add(coin);
+    coins.push(coin);
+  }
+}
+
+function spawnCoins() {
+  // Choose 1 or 2 lanes to have coins
+  const lanes = [0, 1, 2];
+  for (let i = lanes.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [lanes[i], lanes[j]] = [lanes[j], lanes[i]];
+  }
+
+  const coinLaneCount = Math.random() < 0.5 ? 1 : 2;
+  const chosenLanes = lanes.slice(0, coinLaneCount);
+
+  chosenLanes.forEach((lane) => {
+    const count = 3 + Math.floor(Math.random() * 3); // 3–5 coins
+    const heightChoice = Math.random();
+    let yLevel;
+    if (heightChoice < 0.6) yLevel = COIN_Y_GROUND;
+    else                    yLevel = COIN_Y_AIR;   // floating (needs jump)
+
+    // Start coins a bit after the obstacle spawn point
+    spawnCoinLine(lane, SPAWN_Z - 5, count, yLevel);
+  });
+}
+
+// ---------------------------------------------------------------
+// 16. ACTIONS
 // ---------------------------------------------------------------
 function tryJump() {
   if (gameOverActive) return;
@@ -251,7 +317,7 @@ function moveLane(direction) {
 }
 
 // ---------------------------------------------------------------
-// 15. SWIPE DETECTION
+// 17. SWIPE DETECTION
 // ---------------------------------------------------------------
 const SWIPE_THRESHOLD = 30;
 let touchStartX = 0;
@@ -302,12 +368,12 @@ touchLayer.addEventListener('mouseup', (e) => {
 });
 
 // ---------------------------------------------------------------
-// 16. COLLISION DETECTION
+// 18. COLLISION DETECTION
 // ---------------------------------------------------------------
 const PLAYER_HALF_WIDTH = PLAYER_WIDTH / 2;
 const PLAYER_HALF_DEPTH = PLAYER_DEPTH / 2;
 
-function checkCollisions() {
+function checkObstacleCollisions() {
   const playerTop = player.position.y + (PLAYER_HEIGHT * player.scale.y) / 2;
   const playerBottom = player.position.y - (PLAYER_HEIGHT * player.scale.y) / 2;
 
@@ -339,8 +405,34 @@ function checkCollisions() {
   }
 }
 
+function checkCoinCollisions() {
+  const playerTop = player.position.y + (PLAYER_HEIGHT * player.scale.y) / 2;
+  const playerBottom = player.position.y - (PLAYER_HEIGHT * player.scale.y) / 2;
+
+  for (let i = coins.length - 1; i >= 0; i--) {
+    const c = coins[i];
+
+    const dz = Math.abs(c.position.z - player.position.z);
+    if (dz > 0.7) continue;
+
+    const dx = Math.abs(c.position.x - player.position.x);
+    if (dx > 0.7) continue;
+
+    const dy = Math.abs(c.position.y - player.position.y);
+    // Player's vertical "extent" is half its height; add coin radius
+    const verticalReach = (PLAYER_HEIGHT * player.scale.y) / 2 + COIN_RADIUS;
+    if (dy > verticalReach) continue;
+
+    // Collected!
+    scene.remove(c);
+    coins.splice(i, 1);
+    score += COIN_VALUE;
+    flashHud('+' + COIN_VALUE + ' 🪙');
+  }
+}
+
 // ---------------------------------------------------------------
-// 17. GAME OVER + RESTART
+// 19. GAME OVER + RESTART
 // ---------------------------------------------------------------
 function gameOver() {
   if (gameOverActive) return;
@@ -366,6 +458,10 @@ function resetGame() {
   obstacles.forEach((o) => scene.remove(o));
   obstacles.length = 0;
 
+  // Clear coins
+  coins.forEach((c) => scene.remove(c));
+  coins.length = 0;
+
   // Reset player
   currentLane = STARTING_LANE;
   player.position.set(LANE_X[STARTING_LANE], PLAYER_HEIGHT / 2, 0);
@@ -377,10 +473,11 @@ function resetGame() {
   isSliding = false;
   slideTimer = 0;
   spawnTimer = 0;
+  coinSpawnTimer = 0;
   score = 0;
   gameOverActive = false;
 
-  // Reset road position (in case it drifted)
+  // Reset road
   road.position.z = -ROAD_LENGTH / 2 + 10;
 
   // Reset UI
@@ -388,8 +485,9 @@ function resetGame() {
   gameOverEl.classList.add('hidden');
   flashHud('Go! 🏃');
 
-  // Give the player a short grace period before the first spawn
+  // Grace period before first spawns
   spawnTimer = -1.2;
+  coinSpawnTimer = -0.6;
 }
 
 restartBtn.addEventListener('click', () => {
@@ -397,13 +495,15 @@ restartBtn.addEventListener('click', () => {
 });
 
 // ---------------------------------------------------------------
-// 18. INITIALIZE STATE
+// 20. INITIALIZE
 // ---------------------------------------------------------------
 obstacles = [];
+coins = [];
+coinSpin = 0;
 resetGame();
 
 // ---------------------------------------------------------------
-// 19. GAME LOOP
+// 21. GAME LOOP
 // ---------------------------------------------------------------
 const clock = new THREE.Clock();
 const SCORE_PER_SECOND = 10;
@@ -411,10 +511,9 @@ const SCORE_PER_SECOND = 10;
 function animate() {
   requestAnimationFrame(animate);
 
-  // Clamp delta to avoid huge jumps after tab is backgrounded
   const delta = Math.min(clock.getDelta(), 0.1);
 
-  // ---- World scroll ----
+  // World scroll
   road.position.z += WORLD_SPEED * delta;
   if (road.position.z > ROAD_LENGTH / 2 + 10) {
     road.position.z -= ROAD_LENGTH;
@@ -428,14 +527,14 @@ function animate() {
   });
 
   if (!gameOverActive) {
-    // ---- Lane slide ----
+    // Lane slide
     const targetX = LANE_X[currentLane];
     player.position.x += (targetX - player.position.x) * LANE_SLIDE_SPEED * delta;
     if (Math.abs(targetX - player.position.x) < 0.001) {
       player.position.x = targetX;
     }
 
-    // ---- Jump physics ----
+    // Jump
     if (isJumping) {
       velocityY += GRAVITY * delta;
       player.position.y += velocityY * delta;
@@ -446,7 +545,7 @@ function animate() {
       }
     }
 
-    // ---- Slide timer ----
+    // Slide timer
     if (isSliding) {
       slideTimer -= delta;
       if (slideTimer <= 0) {
@@ -460,37 +559,60 @@ function animate() {
       player.position.y = halfHeight;
     }
 
-    // ---- Score ----
+    // Score over time
     score += SCORE_PER_SECOND * delta;
     scoreEl.textContent = 'Score: ' + Math.floor(score);
 
-    // ---- Spawning ----
+    // Spawn obstacles
     spawnTimer += delta;
     if (spawnTimer >= SPAWN_INTERVAL) {
       spawnTimer = 0;
       spawnObstacleRow();
     }
 
-    // ---- Move obstacles ----
+    // Spawn coins
+    coinSpawnTimer += delta;
+    if (coinSpawnTimer >= SPAWN_INTERVAL) {
+      coinSpawnTimer = 0;
+      spawnCoins();
+    }
+
+    // Move obstacles
     for (let i = obstacles.length - 1; i >= 0; i--) {
       const o = obstacles[i];
       o.position.z += WORLD_SPEED * delta;
-
       if (o.position.z > DESPAWN_Z) {
         scene.remove(o);
         obstacles.splice(i, 1);
       }
     }
 
-    // ---- Collisions ----
-    checkCollisions();
+    // Move coins + spin them
+    coinSpin += COIN_SPIN_SPEED * delta;
+    for (let i = coins.length - 1; i >= 0; i--) {
+      const c = coins[i];
+      c.position.z += WORLD_SPEED * delta;
+      // Spin around the world Y axis so it looks like a rotating coin
+      c.rotation.y = coinSpin;
+      // Bob gently
+      c.position.y = c.userData.baseY + Math.sin(coinSpin * 2 + c.position.z) * 0.08;
+
+      if (c.position.z > DESPAWN_Z) {
+        scene.remove(c);
+        coins.splice(i, 1);
+      }
+    }
+
+    // Collisions
+    checkObstacleCollisions();
+    checkCoinCollisions();
   }
 
-  // ---- Debug ----
   debug.textContent =
     'lane: ' + currentLane +
-    ' | y: ' + player.position.y.toFixed(2) +
     ' | obstacles: ' + obstacles.length +
+    ' | coins: ' + coins.length +
+    ' | score: ' + Math.floor(score) +
     ' | ' + (gameOverActive ? 'GAME OVER' : 'running');
 
   renderer.render(scene, camera);
@@ -499,7 +621,7 @@ function animate() {
 animate();
 
 // ---------------------------------------------------------------
-// 20. RESIZE
+// 22. RESIZE
 // ---------------------------------------------------------------
 window.addEventListener('resize', () => {
   camera.aspect = window.innerWidth / window.innerHeight;
