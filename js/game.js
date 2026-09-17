@@ -7,7 +7,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 const container = document.getElementById('game-container');
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5)); // ⬅️ FIX 2
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.domElement.style.position = 'absolute';
 renderer.domElement.style.top = '0';
@@ -15,7 +15,6 @@ renderer.domElement.style.left = '0';
 renderer.domElement.style.zIndex = '1';
 container.appendChild(renderer.domElement);
 
-// ⬅️ FIX 1 — no real shadows
 renderer.shadowMap.enabled = false;
 
 // ---------------------------------------------------------------
@@ -23,7 +22,7 @@ renderer.shadowMap.enabled = false;
 // ---------------------------------------------------------------
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x87ceeb);
-scene.fog = new THREE.Fog(0x87ceeb, 35, 70); // ⬅️ FIX 3
+scene.fog = new THREE.Fog(0x87ceeb, 35, 70);
 
 // ---------------------------------------------------------------
 // 3. CAMERA
@@ -98,7 +97,6 @@ const fallbackBox = new THREE.Mesh(
 fallbackBox.position.y = PLAYER_HEIGHT / 2;
 player.add(fallbackBox);
 
-// Fake shadow disc under the player
 const shadowDisc = new THREE.Mesh(
   new THREE.CircleGeometry(0.5, 24),
   new THREE.MeshBasicMaterial({
@@ -118,14 +116,14 @@ const actions = {};
 let currentAction = null;
 
 // ---------------------------------------------------------------
-// 8. TUNING
+// 8. TUNING — snappier feel
 // ---------------------------------------------------------------
 const GROUND_Y = 0;
-const GRAVITY = -20;
-const JUMP_VELOCITY = 15;
-const SLIDE_DURATION = 0.8;
+const GRAVITY = -32;               // ⬅️ snappier gravity
+const JUMP_VELOCITY = 16;          // ⬅️ slightly stronger initial pop
+const SLIDE_DURATION = 0.7;        // ⬅️ slightly shorter slide
 const SLIDE_HEIGHT_SCALE = 0.5;
-const LANE_SLIDE_SPEED = 8;
+const LANE_SLIDE_SPEED = 14;       // ⬅️ snappier lane changes
 
 const START_WORLD_SPEED = 12;
 const MAX_WORLD_SPEED = 24;
@@ -394,9 +392,9 @@ function moveLane(direction) {
 }
 
 // ---------------------------------------------------------------
-// 18. SWIPE DETECTION
+// 18. SWIPE DETECTION — more sensitive
 // ---------------------------------------------------------------
-const SWIPE_THRESHOLD = 30;
+const SWIPE_THRESHOLD = 20; // ⬅️ was 30, now snappier
 let touchStartX = 0;
 let touchStartY = 0;
 
@@ -646,7 +644,6 @@ function animate() {
 
     player.position.y = playerVisualY;
 
-    // Shadow disc
     shadowDisc.position.x = player.position.x;
     shadowDisc.position.z = player.position.z;
     const jumpHeight = playerVisualY - GROUND_Y;
@@ -655,11 +652,9 @@ function animate() {
     const sizeFactor = Math.max(0.4, 1 - jumpHeight * 0.08);
     shadowDisc.scale.set(sizeFactor, sizeFactor, 1);
 
-    // Score
     score += SCORE_PER_SECOND * delta;
     scoreEl.textContent = 'Score: ' + Math.floor(score);
 
-    // Spawn
     spawnTimer += delta;
     if (spawnTimer >= SPAWN_INTERVAL) {
       spawnTimer = 0;
@@ -672,7 +667,6 @@ function animate() {
       spawnCoins();
     }
 
-    // Obstacles
     for (let i = obstacles.length - 1; i >= 0; i--) {
       const o = obstacles[i];
       o.position.z += worldSpeed * delta;
@@ -682,7 +676,6 @@ function animate() {
       }
     }
 
-    // Coins
     coinSpin += COIN_SPIN_SPEED * delta;
     for (let i = coins.length - 1; i >= 0; i--) {
       const c = coins[i];
