@@ -90,63 +90,98 @@ const player = new THREE.Mesh(playerGeometry, playerMaterial);
 player.position.set(LANE_X[STARTING_LANE], PLAYER_HEIGHT / 2, 0);
 scene.add(player);
 
-let currentLane = STARTING_LANE;
-
-// Jump
+// ---------------------------------------------------------------
+// 8. TUNING CONSTANTS
+// ---------------------------------------------------------------
 const GROUND_Y = PLAYER_HEIGHT / 2;
 const GRAVITY = -20;
 const JUMP_VELOCITY = 15;
-let isJumping = false;
-let velocityY = 0;
-
-// Slide
 const SLIDE_DURATION = 0.8;
 const SLIDE_HEIGHT_SCALE = 0.3;
-let isSliding = false;
-let slideTimer = 0;
-
-// ---------------------------------------------------------------
-// 8. SPEEDS
-// ---------------------------------------------------------------
 const WORLD_SPEED = 12;
 const LANE_SLIDE_SPEED = 8;
 
 // ---------------------------------------------------------------
-// 9. OBSTACLES
+// 9. OBSTACLE CONSTANTS
 // ---------------------------------------------------------------
-const obstacles = [];        // active obstacles
-const obstaclePool = [];     // recycled obstacles
-
-const SPAWN_Z = -80;         // where new obstacles appear
-const DESPAWN_Z = 15;        // where to recycle them
-const SPAWN_INTERVAL = 1.3;  // seconds between spawn rows
-let spawnTimer = 0;
-
-// Obstacle geometry templates
-const LOW_HEIGHT = 0.8;         // must be jumped over
-const HIGH_BOTTOM = 1.2;        // gap height (must slide under)
-const FULL_HEIGHT = 2.5;        // must dodge sideways
-
+const SPAWN_Z = -80;
+const DESPAWN_Z = 15;
+const SPAWN_INTERVAL = 1.3;
+const LOW_HEIGHT = 0.8;
+const HIGH_BOTTOM = 1.2;
+const FULL_HEIGHT = 2.5;
 const obstacleDepth = 1.2;
 
+// ---------------------------------------------------------------
+// 10. GAME STATE (all resettable)
+// ---------------------------------------------------------------
+let currentLane;
+let isJumping;
+let velocityY;
+let isSliding;
+let slideTimer;
+let spawnTimer;
+let gameOverActive;
+let score;
+let obstacles; // active obstacles
+
+const obstaclePool = []; // recycled meshes
+
+// ---------------------------------------------------------------
+// 11. HUD ELEMENTS
+// ---------------------------------------------------------------
+const hud = document.createElement('div');
+hud.id = 'hud';
+hud.textContent = 'Swipe L/R · Up to jump · Down to slide';
+document.body.appendChild(hud);
+
+const debug = document.createElement('div');
+debug.id = 'debug';
+document.body.appendChild(debug);
+
+const scoreEl = document.getElementById('score');
+const gameOverEl = document.getElementById('game-over');
+const finalScoreEl = document.getElementById('final-score');
+const bestScoreEl = document.getElementById('best-score');
+const restartBtn = document.getElementById('restart-btn');
+
+function flashHud(text) {
+  hud.textContent = text;
+}
+
+// ---------------------------------------------------------------
+// 12. BEST SCORE (localStorage)
+// ---------------------------------------------------------------
+const BEST_KEY = 'nigerianRunner.bestScore';
+
+function getBestScore() {
+  const v = parseInt(localStorage.getItem(BEST_KEY) || '0', 10);
+  return isNaN(v) ? 0 : v;
+}
+
+function setBestScore(v) {
+  localStorage.setItem(BEST_KEY, String(v));
+}
+
+// ---------------------------------------------------------------
+// 13. OBSTACLE FACTORY
+// ---------------------------------------------------------------
 function makeObstacleMesh(type) {
   let mesh;
 
   if (type === 'low') {
     const geo = new THREE.BoxGeometry(1.6, LOW_HEIGHT, obstacleDepth);
-    const mat = new THREE.MeshStandardMaterial({ color: 0xcc2222 }); // red
+    const mat = new THREE.MeshStandardMaterial({ color: 0xcc2222 });
     mesh = new THREE.Mesh(geo, mat);
+    mesh.position.y = LOW_HEIGHT / 2;
   } else if (type === 'high') {
-    // A tall bar; the gap is achieved by raising it up
     const geo = new THREE.BoxGeometry(1.6, 1.8, obstacleDepth);
-    const mat = new THREE.MeshStandardMaterial({ color: 0x2266cc }); // blue
+    const mat = new THREE.MeshStandardMaterial({ color: 0x2266cc });
     mesh = new THREE.Mesh(geo, mat);
-    // Position so the bottom of the bar is at HIGH_BOTTOM height
     mesh.position.y = HIGH_BOTTOM + 0.9;
   } else {
-    // 'full' — solid block
     const geo = new THREE.BoxGeometry(1.6, FULL_HEIGHT, obstacleDepth);
-    const mat = new THREE.MeshStandardMaterial({ color: 0x333333 }); // dark grey
+    const mat = new THREE.MeshStandardMaterial({ color: 0x333333 });
     mesh = new THREE.Mesh(geo, mat);
     mesh.position.y = FULL_HEIGHT / 2;
   }
@@ -156,11 +191,9 @@ function makeObstacleMesh(type) {
 }
 
 function spawnObstacleRow() {
-  // Pick 1 or 2 lanes to block, leave at least one safe
   const lanes = [0, 1, 2];
   const blockedCount = Math.random() < 0.6 ? 1 : 2;
 
-  // Shuffle lanes
   for (let i = lanes.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [lanes[i], lanes[j]] = [lanes[j], lanes[i]];
@@ -169,59 +202,26 @@ function spawnObstacleRow() {
   const blockedLanes = lanes.slice(0, blockedCount);
 
   blockedLanes.forEach((lane) => {
-    // Weighted random type: more low barriers early, more variety later
     const r = Math.random();
     let type;
     if (r < 0.4) type = 'low';
     else if (r < 0.7) type = 'high';
     else type = 'full';
 
-    let obstacle = obstaclePool.pop();
-    if (!obstacle) {
-      obstacle = makeObstacleMesh(type);
-      scene.add(obstacle);
-    } else {
-      // Recycle: reset visual
-      scene.remove(obstacle);
-      obstacle = makeObstacleMesh(type);
-      scene.add(obstacle);
-    }
-
+    const obstacle = makeObstacleMesh(type);
     obstacle.position.x = LANE_X[lane];
     obstacle.position.z = SPAWN_Z;
-
-    // For low and full, we set Y here again for clarity
-    if (type === 'low') {
-      obstacle.position.y = LOW_HEIGHT / 2;
-    }
-
     obstacle.userData.lane = lane;
-    obstacle.userData.type = type;
-
+    scene.add(obstacle);
     obstacles.push(obstacle);
   });
 }
 
 // ---------------------------------------------------------------
-// 10. HUD + DEBUG
-// ---------------------------------------------------------------
-const hud = document.createElement('div');
-hud.id = 'hud';
-hud.textContent = 'Swipe L/R to move · Up to jump · Down to slide';
-document.body.appendChild(hud);
-
-const debug = document.createElement('div');
-debug.id = 'debug';
-document.body.appendChild(debug);
-
-function flashHud(text) {
-  hud.textContent = text;
-}
-
-// ---------------------------------------------------------------
-// 11. ACTIONS
+// 14. ACTIONS
 // ---------------------------------------------------------------
 function tryJump() {
+  if (gameOverActive) return;
   if (isJumping) return;
   if (isSliding) return;
   isJumping = true;
@@ -230,6 +230,7 @@ function tryJump() {
 }
 
 function trySlide() {
+  if (gameOverActive) return;
   if (isSliding) return;
   if (isJumping) return;
   isSliding = true;
@@ -239,6 +240,7 @@ function trySlide() {
 }
 
 function moveLane(direction) {
+  if (gameOverActive) return;
   if (direction === 'left' && currentLane > 0) {
     currentLane -= 1;
     flashHud('Lane ' + (currentLane + 1) + ' 👈');
@@ -249,7 +251,7 @@ function moveLane(direction) {
 }
 
 // ---------------------------------------------------------------
-// 12. SWIPE DETECTION
+// 15. SWIPE DETECTION
 // ---------------------------------------------------------------
 const SWIPE_THRESHOLD = 30;
 let touchStartX = 0;
@@ -264,9 +266,7 @@ function handleTouchEnd(clientX, clientY) {
   const dx = clientX - touchStartX;
   const dy = clientY - touchStartY;
 
-  if (Math.abs(dx) < SWIPE_THRESHOLD && Math.abs(dy) < SWIPE_THRESHOLD) {
-    return;
-  }
+  if (Math.abs(dx) < SWIPE_THRESHOLD && Math.abs(dy) < SWIPE_THRESHOLD) return;
 
   if (Math.abs(dx) > Math.abs(dy)) {
     moveLane(dx > 0 ? 'right' : 'left');
@@ -302,41 +302,33 @@ touchLayer.addEventListener('mouseup', (e) => {
 });
 
 // ---------------------------------------------------------------
-// 13. COLLISION DETECTION
+// 16. COLLISION DETECTION
 // ---------------------------------------------------------------
-// Player bounding box (approximate)
-const PLAYER_HALF_WIDTH = PLAYER_WIDTH / 2;     // 0.5
-const PLAYER_HALF_DEPTH = PLAYER_DEPTH / 2;     // 0.5
+const PLAYER_HALF_WIDTH = PLAYER_WIDTH / 2;
+const PLAYER_HALF_DEPTH = PLAYER_DEPTH / 2;
 
 function checkCollisions() {
-  // Player's world-space Y top and bottom
   const playerTop = player.position.y + (PLAYER_HEIGHT * player.scale.y) / 2;
   const playerBottom = player.position.y - (PLAYER_HEIGHT * player.scale.y) / 2;
 
   for (let i = obstacles.length - 1; i >= 0; i--) {
     const o = obstacles[i];
 
-    // Z overlap?
     const dz = Math.abs(o.position.z - player.position.z);
     if (dz > obstacleDepth / 2 + PLAYER_HALF_DEPTH) continue;
 
-    // X overlap? (lane-based, since we know obstacles are in a lane)
     const dx = Math.abs(o.position.x - player.position.x);
     if (dx > 0.9 + PLAYER_HALF_WIDTH) continue;
 
-    // Vertical check based on type
     let hit = false;
 
     if (o.userData.type === 'low') {
-      // Must be above the barrier
       const top = o.position.y + LOW_HEIGHT / 2;
       if (playerBottom < top) hit = true;
     } else if (o.userData.type === 'high') {
-      // Must be below the bar
-      const bottom = o.position.y - 0.9; // bar height 1.8, half = 0.9
+      const bottom = o.position.y - 0.9;
       if (playerTop > bottom) hit = true;
     } else {
-      // 'full' — always a hit if in same lane
       hit = true;
     }
 
@@ -348,26 +340,79 @@ function checkCollisions() {
 }
 
 // ---------------------------------------------------------------
-// 14. GAME OVER
+// 17. GAME OVER + RESTART
 // ---------------------------------------------------------------
-let gameOverActive = false;
-
 function gameOver() {
   if (gameOverActive) return;
   gameOverActive = true;
-  flashHud('💥 GAME OVER — reload to try again');
-  document.body.style.background = '#880000';
+
+  const finalScore = Math.floor(score);
+  const bestScore = getBestScore();
+
+  if (finalScore > bestScore) {
+    setBestScore(finalScore);
+    bestScoreEl.textContent = 'Best: ' + finalScore + ' (NEW!)';
+  } else {
+    bestScoreEl.textContent = 'Best: ' + bestScore;
+  }
+
+  finalScoreEl.textContent = 'Score: ' + finalScore;
+  gameOverEl.classList.remove('hidden');
+  flashHud('💥 GAME OVER');
 }
 
+function resetGame() {
+  // Clear obstacles
+  obstacles.forEach((o) => scene.remove(o));
+  obstacles.length = 0;
+
+  // Reset player
+  currentLane = STARTING_LANE;
+  player.position.set(LANE_X[STARTING_LANE], PLAYER_HEIGHT / 2, 0);
+  player.scale.y = 1;
+
+  // Reset state
+  isJumping = false;
+  velocityY = 0;
+  isSliding = false;
+  slideTimer = 0;
+  spawnTimer = 0;
+  score = 0;
+  gameOverActive = false;
+
+  // Reset road position (in case it drifted)
+  road.position.z = -ROAD_LENGTH / 2 + 10;
+
+  // Reset UI
+  scoreEl.textContent = 'Score: 0';
+  gameOverEl.classList.add('hidden');
+  flashHud('Go! 🏃');
+
+  // Give the player a short grace period before the first spawn
+  spawnTimer = -1.2;
+}
+
+restartBtn.addEventListener('click', () => {
+  resetGame();
+});
+
 // ---------------------------------------------------------------
-// 15. GAME LOOP
+// 18. INITIALIZE STATE
+// ---------------------------------------------------------------
+obstacles = [];
+resetGame();
+
+// ---------------------------------------------------------------
+// 19. GAME LOOP
 // ---------------------------------------------------------------
 const clock = new THREE.Clock();
+const SCORE_PER_SECOND = 10;
 
 function animate() {
   requestAnimationFrame(animate);
 
-  const delta = clock.getDelta();
+  // Clamp delta to avoid huge jumps after tab is backgrounded
+  const delta = Math.min(clock.getDelta(), 0.1);
 
   // ---- World scroll ----
   road.position.z += WORLD_SPEED * delta;
@@ -382,60 +427,62 @@ function animate() {
     }
   });
 
-  // ---- Lane slide (X) ----
-  const targetX = LANE_X[currentLane];
-  player.position.x += (targetX - player.position.x) * LANE_SLIDE_SPEED * delta;
-  if (Math.abs(targetX - player.position.x) < 0.001) {
-    player.position.x = targetX;
-  }
-
-  // ---- Jump physics ----
-  if (isJumping) {
-    velocityY += GRAVITY * delta;
-    player.position.y += velocityY * delta;
-    if (player.position.y <= GROUND_Y) {
-      player.position.y = GROUND_Y;
-      velocityY = 0;
-      isJumping = false;
-    }
-  }
-
-  // ---- Slide timer ----
-  if (isSliding) {
-    slideTimer -= delta;
-    if (slideTimer <= 0) {
-      isSliding = false;
-      player.scale.y = 1;
-    }
-  }
-
-  const halfHeight = (PLAYER_HEIGHT * player.scale.y) / 2;
-  if (!isJumping) {
-    player.position.y = halfHeight;
-  }
-
-  // ---- Spawn new obstacle rows ----
   if (!gameOverActive) {
+    // ---- Lane slide ----
+    const targetX = LANE_X[currentLane];
+    player.position.x += (targetX - player.position.x) * LANE_SLIDE_SPEED * delta;
+    if (Math.abs(targetX - player.position.x) < 0.001) {
+      player.position.x = targetX;
+    }
+
+    // ---- Jump physics ----
+    if (isJumping) {
+      velocityY += GRAVITY * delta;
+      player.position.y += velocityY * delta;
+      if (player.position.y <= GROUND_Y) {
+        player.position.y = GROUND_Y;
+        velocityY = 0;
+        isJumping = false;
+      }
+    }
+
+    // ---- Slide timer ----
+    if (isSliding) {
+      slideTimer -= delta;
+      if (slideTimer <= 0) {
+        isSliding = false;
+        player.scale.y = 1;
+      }
+    }
+
+    const halfHeight = (PLAYER_HEIGHT * player.scale.y) / 2;
+    if (!isJumping) {
+      player.position.y = halfHeight;
+    }
+
+    // ---- Score ----
+    score += SCORE_PER_SECOND * delta;
+    scoreEl.textContent = 'Score: ' + Math.floor(score);
+
+    // ---- Spawning ----
     spawnTimer += delta;
     if (spawnTimer >= SPAWN_INTERVAL) {
       spawnTimer = 0;
       spawnObstacleRow();
     }
-  }
 
-  // ---- Move obstacles toward the player ----
-  for (let i = obstacles.length - 1; i >= 0; i--) {
-    const o = obstacles[i];
-    o.position.z += WORLD_SPEED * delta;
+    // ---- Move obstacles ----
+    for (let i = obstacles.length - 1; i >= 0; i--) {
+      const o = obstacles[i];
+      o.position.z += WORLD_SPEED * delta;
 
-    if (o.position.z > DESPAWN_Z) {
-      scene.remove(o);
-      obstacles.splice(i, 1);
+      if (o.position.z > DESPAWN_Z) {
+        scene.remove(o);
+        obstacles.splice(i, 1);
+      }
     }
-  }
 
-  // ---- Check collisions ----
-  if (!gameOverActive) {
+    // ---- Collisions ----
     checkCollisions();
   }
 
@@ -452,7 +499,7 @@ function animate() {
 animate();
 
 // ---------------------------------------------------------------
-// 16. RESIZE
+// 20. RESIZE
 // ---------------------------------------------------------------
 window.addEventListener('resize', () => {
   camera.aspect = window.innerWidth / window.innerHeight;
