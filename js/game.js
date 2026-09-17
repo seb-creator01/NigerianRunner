@@ -8,6 +8,10 @@ const container = document.getElementById('game-container');
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.domElement.style.position = 'absolute';
+renderer.domElement.style.top = '0';
+renderer.domElement.style.left = '0';
+renderer.domElement.style.zIndex = '1';
 container.appendChild(renderer.domElement);
 
 // ---------------------------------------------------------------
@@ -107,6 +111,7 @@ function flashHud(text) {
 function handleTouchStart(clientX, clientY) {
   touchStartX = clientX;
   touchStartY = clientY;
+  flashHud('Touch started...');
 }
 
 function handleTouchEnd(clientX, clientY) {
@@ -125,22 +130,30 @@ function handleTouchEnd(clientX, clientY) {
   }
 }
 
-// Touch (mobile)
-window.addEventListener('touchstart', (e) => {
+// Attach listeners to the full-screen touch layer
+const touchLayer = document.getElementById('touch-layer');
+
+touchLayer.addEventListener('touchstart', (e) => {
+  e.preventDefault();
   const t = e.changedTouches[0];
   handleTouchStart(t.clientX, t.clientY);
-}, { passive: true });
+}, { passive: false });
 
-window.addEventListener('touchend', (e) => {
+touchLayer.addEventListener('touchend', (e) => {
+  e.preventDefault();
   const t = e.changedTouches[0];
   handleTouchEnd(t.clientX, t.clientY);
-}, { passive: true });
+}, { passive: false });
 
-// Mouse (for testing on desktop)
-window.addEventListener('mousedown', (e) => {
+touchLayer.addEventListener('touchmove', (e) => {
+  e.preventDefault();
+}, { passive: false });
+
+// Mouse fallback for desktop testing
+touchLayer.addEventListener('mousedown', (e) => {
   handleTouchStart(e.clientX, e.clientY);
 });
-window.addEventListener('mouseup', (e) => {
+touchLayer.addEventListener('mouseup', (e) => {
   handleTouchEnd(e.clientX, e.clientY);
 });
 
