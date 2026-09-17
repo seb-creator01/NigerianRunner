@@ -15,6 +15,10 @@ renderer.domElement.style.left = '0';
 renderer.domElement.style.zIndex = '1';
 container.appendChild(renderer.domElement);
 
+// Enable shadows
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
 // ---------------------------------------------------------------
 // 2. SCENE + FOG
 // ---------------------------------------------------------------
@@ -41,6 +45,15 @@ scene.add(new THREE.AmbientLight(0xffffff, 0.8));
 
 const sunLight = new THREE.DirectionalLight(0xffffff, 1.2);
 sunLight.position.set(5, 10, 5);
+sunLight.castShadow = true;
+sunLight.shadow.mapSize.width = 512;
+sunLight.shadow.mapSize.height = 512;
+sunLight.shadow.camera.near = 0.5;
+sunLight.shadow.camera.far = 30;
+sunLight.shadow.camera.left = -8;
+sunLight.shadow.camera.right = 8;
+sunLight.shadow.camera.top = 8;
+sunLight.shadow.camera.bottom = -8;
 scene.add(sunLight);
 
 // ---------------------------------------------------------------
@@ -59,6 +72,7 @@ const roadGeometry = new THREE.BoxGeometry(ROAD_WIDTH, 0.2, ROAD_LENGTH);
 const roadMaterial = new THREE.MeshStandardMaterial({ color: 0x444444 });
 const road = new THREE.Mesh(roadGeometry, roadMaterial);
 road.position.set(0, 0, -ROAD_LENGTH / 2 + 10);
+road.receiveShadow = true;
 scene.add(road);
 
 const stripeGroup = new THREE.Group();
@@ -94,7 +108,22 @@ const fallbackBox = new THREE.Mesh(
   new THREE.MeshStandardMaterial({ color: 0xff6600 })
 );
 fallbackBox.position.y = PLAYER_HEIGHT / 2;
+fallbackBox.castShadow = true;
 player.add(fallbackBox);
+
+// Shadow disc under the player (a flat circle that always sits on the road)
+const shadowDisc = new THREE.Mesh(
+  new THREE.CircleGeometry(0.5, 24),
+  new THREE.MeshBasicMaterial({
+    color: 0x000000,
+    transparent: true,
+    opacity: 0.35,
+    depthWrite: false,
+  })
+);
+shadowDisc.rotation.x = -Math.PI / 2;
+shadowDisc.position.y = 0.12;
+scene.add(shadowDisc);
 
 let characterModel = null;
 let mixer = null;
@@ -108,7 +137,7 @@ const GROUND_Y = 0;
 const GRAVITY = -20;
 const JUMP_VELOCITY = 15;
 const SLIDE_DURATION = 0.8;
-const SLIDE_HEIGHT_SCALE = 0.3;
+const SLIDE_HEIGHT_SCALE = 0.5;    // squash the model to 50% height for slide
 const LANE_SLIDE_SPEED = 8;
 
 const START_WORLD_SPEED = 12;
@@ -207,11 +236,17 @@ function setBestScore(v) {
 // ---------------------------------------------------------------
 // 14. CHARACTER LOADING
 // ---------------------------------------------------------------
+// Soldier.glb — has: Idle, Run, TPose, Walk
 const CHARACTER_URL =
   'https://threejs.org/examples/models/gltf/Soldier.glb';
 
 const CHARACTER_SCALE = 1.0;
 const CHARACTER_ROTATION_Y = 0;
+
+// Names of the animations we know exist (from the Anims list)
+const ANIM_RUN = 'Run';
+const ANIM_IDLE = 'Idle';
+const ANIM_WALK = 'Walk';
 
 const loader = new GLTFLoader();
 
@@ -224,6 +259,14 @@ loader.load(
     characterModel.position.y = 0;
     characterModel.rotation.y = CHARACTER_ROTATION_Y;
 
+    // Enable shadows on all meshes inside the model
+    characterModel.traverse((child) => {
+      if (child.isMesh) {
+        child.castShadow = true;
+        child.receiveShadow = true;
+      }
+    });
+
     player.add(characterModel);
     fallbackBox.visible = false;
 
@@ -233,21 +276,11 @@ loader.load(
       actions[clip.name] = mixer.clipAction(clip);
     });
 
-    const animNames = Object.keys(actions);
-    console.log('Loaded animations:', animNames);
+    console.log('Loaded animations:', Object.keys(actions));
 
-    // ⬅️ CHANGED — show animation names for 15 seconds so you can read them
-    flashHud('Anims: ' + animNames.join(', '));
-    setTimeout(() => {
-      if (!gameOverActive) flashHud('Go! 🏃');
-    }, 15000);
-
-    const runName =
-      pickAnimation(['Run', 'Running', 'run', 'Walk', 'walk']) ||
-      animNames[0];
-
-    if (runName) {
-      currentAction = actions[runName];
+    // Play the run animation
+    if (actions[ANIM_RUN]) {
+      currentAction = actions[ANIM_RUN];
       currentAction.play();
     }
   },
@@ -258,17 +291,8 @@ loader.load(
   }
 );
 
-function pickAnimation(candidates) {
-  for (const name of candidates) {
-    if (actions[name]) return name;
-  }
-  return null;
-}
-
-function playAnimation(candidates) {
-  if (!mixer) return;
-  const name = pickAnimation(candidates);
-  if (!name) return;
+function playAnimation(name) {
+  if (!mixer || !actions[name]) return;
   if (currentAction === actions[name]) return;
 
   const next = actions[name];
@@ -302,6 +326,7 @@ function makeObstacleMesh(type) {
     mesh.position.y = FULL_HEIGHT / 2;
   }
 
+  mesh.castShadow = true;
   mesh.userData.type = type;
   return mesh;
 }
@@ -385,7 +410,7 @@ function tryJump() {
   isJumping = true;
   velocityY = JUMP_VELOCITY;
   flashHud('Jump 👆');
-  playAnimation(['Jump', 'Jumping', 'jump', 'RunJump']);
+  // No jump animation in this model — keep run animation playing
 }
 
 function trySlide() {
@@ -395,7 +420,6 @@ function trySlide() {
   isSliding = true;
   slideTimer = SLIDE_DURATION;
   flashHud('Slide 👇');
-  playAnimation(['Slide', 'Sliding', 'slide', 'Crouch', 'crouch']);
 }
 
 function moveLane(direction) {
@@ -543,7 +567,6 @@ function gameOver() {
   finalScoreEl.textContent = 'Score: ' + finalScore;
   gameOverEl.classList.remove('hidden');
   flashHud('💥 GAME OVER');
-  playAnimation(['Death', 'Die', 'death']);
 }
 
 function resetGame() {
@@ -556,6 +579,9 @@ function resetGame() {
   currentLane = STARTING_LANE;
   player.position.set(LANE_X[STARTING_LANE], 0, 0);
   playerVisualY = 0;
+  if (characterModel) {
+    characterModel.scale.y = CHARACTER_SCALE;
+  }
 
   isJumping = false;
   velocityY = 0;
@@ -578,8 +604,6 @@ function resetGame() {
 
   spawnTimer = -1.2;
   coinSpawnTimer = -0.6;
-
-  playAnimation(['Run', 'Running', 'run', 'Walk', 'walk']);
 }
 
 restartBtn.addEventListener('click', () => {
@@ -607,6 +631,7 @@ function animate() {
 
   if (mixer) mixer.update(delta);
 
+  // Road scroll
   road.position.z += worldSpeed * delta;
   if (road.position.z > ROAD_LENGTH / 2 + 10) {
     road.position.z -= ROAD_LENGTH;
@@ -620,6 +645,7 @@ function animate() {
   });
 
   if (!gameOverActive) {
+    // Difficulty
     runTime += delta;
     worldSpeed = Math.min(
       START_WORLD_SPEED + runTime * SPEED_INCREASE_PER_SECOND,
@@ -627,12 +653,14 @@ function animate() {
     );
     speedLevel = 1 + Math.floor(runTime / 5);
 
+    // Lane slide
     const targetX = LANE_X[currentLane];
     player.position.x += (targetX - player.position.x) * LANE_SLIDE_SPEED * delta;
     if (Math.abs(targetX - player.position.x) < 0.001) {
       player.position.x = targetX;
     }
 
+    // Jump
     if (isJumping) {
       velocityY += GRAVITY * delta;
       playerVisualY += velocityY * delta;
@@ -640,23 +668,47 @@ function animate() {
         playerVisualY = GROUND_Y;
         velocityY = 0;
         isJumping = false;
-        playAnimation(['Run', 'Running', 'run', 'Walk', 'walk']);
       }
     }
 
+    // Slide (visual squash of the model)
     if (isSliding) {
       slideTimer -= delta;
+      // Smoothly squash the character model
+      if (characterModel) {
+        const targetScaleY = CHARACTER_SCALE * SLIDE_HEIGHT_SCALE;
+        characterModel.scale.y +=
+          (targetScaleY - characterModel.scale.y) * 12 * delta;
+      }
       if (slideTimer <= 0) {
         isSliding = false;
-        playAnimation(['Run', 'Running', 'run', 'Walk', 'walk']);
+      }
+    } else {
+      // Smoothly restore full height
+      if (characterModel) {
+        characterModel.scale.y +=
+          (CHARACTER_SCALE - characterModel.scale.y) * 12 * delta;
       }
     }
 
     player.position.y = playerVisualY;
 
+    // Shadow disc follows the player
+    shadowDisc.position.x = player.position.x;
+    shadowDisc.position.z = player.position.z;
+    // Fade the shadow as the player jumps higher
+    const jumpHeight = playerVisualY - GROUND_Y;
+    const fadeFactor = Math.max(0.05, 0.35 - jumpHeight * 0.06);
+    shadowDisc.material.opacity = fadeFactor;
+    // Shrink the shadow as the player jumps
+    const sizeFactor = Math.max(0.4, 1 - jumpHeight * 0.08);
+    shadowDisc.scale.set(sizeFactor, sizeFactor, 1);
+
+    // Score
     score += SCORE_PER_SECOND * delta;
     scoreEl.textContent = 'Score: ' + Math.floor(score);
 
+    // Spawn
     spawnTimer += delta;
     if (spawnTimer >= SPAWN_INTERVAL) {
       spawnTimer = 0;
@@ -669,6 +721,7 @@ function animate() {
       spawnCoins();
     }
 
+    // Move obstacles
     for (let i = obstacles.length - 1; i >= 0; i--) {
       const o = obstacles[i];
       o.position.z += worldSpeed * delta;
@@ -678,6 +731,7 @@ function animate() {
       }
     }
 
+    // Move coins
     coinSpin += COIN_SPIN_SPEED * delta;
     for (let i = coins.length - 1; i >= 0; i--) {
       const c = coins[i];
