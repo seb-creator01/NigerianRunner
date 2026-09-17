@@ -85,13 +85,12 @@ const PLAYER_WIDTH = 1;
 const PLAYER_HEIGHT = 2;
 const PLAYER_DEPTH = 1;
 
-// We create a "player" object — an empty group at the player's position.
-// The visual (whether a fallback box or the loaded model) goes inside it.
+// Player group — everything inside moves with the player
 const player = new THREE.Group();
 player.position.set(LANE_X[STARTING_LANE], 0, 0);
 scene.add(player);
 
-// Fallback visual — a temporary box, visible until the real model loads
+// Fallback box (visible until the model loads)
 const fallbackBox = new THREE.Mesh(
   new THREE.BoxGeometry(PLAYER_WIDTH, PLAYER_HEIGHT, PLAYER_DEPTH),
   new THREE.MeshStandardMaterial({ color: 0xff6600 })
@@ -99,16 +98,16 @@ const fallbackBox = new THREE.Mesh(
 fallbackBox.position.y = PLAYER_HEIGHT / 2;
 player.add(fallbackBox);
 
-// Variables related to the loaded character
+// Character model (replaces fallback when loaded)
 let characterModel = null;
 let mixer = null;
-const actions = {};     // name -> AnimationAction
+const actions = {};
 let currentAction = null;
 
 // ---------------------------------------------------------------
 // 8. TUNING
 // ---------------------------------------------------------------
-const GROUND_Y = 0;                   // player group sits on the ground
+const GROUND_Y = 0;
 const GRAVITY = -20;
 const JUMP_VELOCITY = 15;
 const SLIDE_DURATION = 0.8;
@@ -170,7 +169,6 @@ let worldSpeed;
 let runTime;
 let speedLevel;
 
-// Player visual Y (separate from group Y, since character and box handle this differently)
 let playerVisualY = 0;
 
 // ---------------------------------------------------------------
@@ -212,9 +210,14 @@ function setBestScore(v) {
 // ---------------------------------------------------------------
 // 14. CHARACTER LOADING
 // ---------------------------------------------------------------
-// This is a Quaternius public-domain (CC0) character with animations.
-// If it fails to load for any reason, the fallbackBox stays visible and the game keeps working.
-const CHARACTER_URL = 'https://threejs.org/examples/models/gltf/RobotExpressive/RobotExpressive.glb';
+// Placeholder character (Three.js example, CC0 license).
+// Swap this URL for a human character .glb later.
+const CHARACTER_URL =
+  'https://threejs.org/examples/models/gltf/RobotExpressive/RobotExpressive.glb';
+
+// Model tuning — tweak these if the character looks wrong
+const CHARACTER_SCALE = 0.3;    // smaller = smaller character
+const CHARACTER_ROTATION_Y = 0; // 0 = face away from camera
 
 const loader = new GLTFLoader();
 
@@ -223,27 +226,21 @@ loader.load(
   (gltf) => {
     characterModel = gltf.scene;
 
-    // Scale + orient
-    characterModel.scale.set(1.0, 1.0, 1.0);
+    characterModel.scale.set(CHARACTER_SCALE, CHARACTER_SCALE, CHARACTER_SCALE);
     characterModel.position.y = 0;
-    characterModel.rotation.y = Math.PI; // face away from camera (run forward)
+    characterModel.rotation.y = CHARACTER_ROTATION_Y;
 
-    // Add to player group, hide the fallback box
     player.add(characterModel);
     fallbackBox.visible = false;
 
-    // Set up animation mixer
     mixer = new THREE.AnimationMixer(characterModel);
 
-    // Register all animations found in the file
     gltf.animations.forEach((clip) => {
       actions[clip.name] = mixer.clipAction(clip);
     });
 
-    // Log animation names to the console for debugging
     console.log('Loaded animations:', Object.keys(actions));
 
-    // Play the first available "run-like" animation
     const runName =
       pickAnimation(['Run', 'Running', 'run', 'Walk', 'walk']) ||
       Object.keys(actions)[0];
@@ -257,13 +254,11 @@ loader.load(
   },
   undefined,
   (err) => {
-    // On error, keep the orange box; log the error
     console.error('Failed to load character:', err);
     flashHud('Character failed — using box');
   }
 );
 
-// Helper: pick the first existing animation name from a list of candidates
 function pickAnimation(candidates) {
   for (const name of candidates) {
     if (actions[name]) return name;
@@ -271,7 +266,6 @@ function pickAnimation(candidates) {
   return null;
 }
 
-// Helper: switch to a named animation (if it exists)
 function playAnimation(candidates) {
   if (!mixer) return;
   const name = pickAnimation(candidates);
@@ -474,9 +468,9 @@ const PLAYER_HALF_WIDTH = PLAYER_WIDTH / 2;
 const PLAYER_HALF_DEPTH = PLAYER_DEPTH / 2;
 
 function checkObstacleCollisions() {
-  // The player group sits on the ground; visual top/bottom depend on jump/slide state
-  const playerTop = playerVisualY + (PLAYER_HEIGHT * (isSliding ? SLIDE_HEIGHT_SCALE : 1)) / 2;
-  const playerBottom = playerVisualY - (PLAYER_HEIGHT * (isSliding ? SLIDE_HEIGHT_SCALE : 1)) / 2;
+  const heightScale = isSliding ? SLIDE_HEIGHT_SCALE : 1;
+  const playerTop = playerVisualY + (PLAYER_HEIGHT * heightScale) / 2;
+  const playerBottom = playerVisualY - (PLAYER_HEIGHT * heightScale) / 2;
 
   for (let i = obstacles.length - 1; i >= 0; i--) {
     const o = obstacles[i];
@@ -507,6 +501,9 @@ function checkObstacleCollisions() {
 }
 
 function checkCoinCollisions() {
+  const heightScale = isSliding ? SLIDE_HEIGHT_SCALE : 1;
+  const playerCenterY = playerVisualY + (PLAYER_HEIGHT * heightScale) / 2;
+
   for (let i = coins.length - 1; i >= 0; i--) {
     const c = coins[i];
 
@@ -516,9 +513,8 @@ function checkCoinCollisions() {
     const dx = Math.abs(c.position.x - player.position.x);
     if (dx > 0.7) continue;
 
-    const playerCenterY = playerVisualY + PLAYER_HEIGHT / 2;
     const dy = Math.abs(c.position.y - playerCenterY);
-    const verticalReach = (PLAYER_HEIGHT * (isSliding ? SLIDE_HEIGHT_SCALE : 1)) / 2 + COIN_RADIUS;
+    const verticalReach = (PLAYER_HEIGHT * heightScale) / 2 + COIN_RADIUS;
     if (dy > verticalReach) continue;
 
     scene.remove(c);
@@ -610,10 +606,8 @@ function animate() {
 
   const delta = Math.min(clock.getDelta(), 0.1);
 
-  // Update animation mixer every frame
   if (mixer) mixer.update(delta);
 
-  // Road scroll
   road.position.z += worldSpeed * delta;
   if (road.position.z > ROAD_LENGTH / 2 + 10) {
     road.position.z -= ROAD_LENGTH;
@@ -627,7 +621,6 @@ function animate() {
   });
 
   if (!gameOverActive) {
-    // Difficulty curve
     runTime += delta;
     worldSpeed = Math.min(
       START_WORLD_SPEED + runTime * SPEED_INCREASE_PER_SECOND,
@@ -635,14 +628,12 @@ function animate() {
     );
     speedLevel = 1 + Math.floor(runTime / 5);
 
-    // Lane slide
     const targetX = LANE_X[currentLane];
     player.position.x += (targetX - player.position.x) * LANE_SLIDE_SPEED * delta;
     if (Math.abs(targetX - player.position.x) < 0.001) {
       player.position.x = targetX;
     }
 
-    // Jump physics
     if (isJumping) {
       velocityY += GRAVITY * delta;
       playerVisualY += velocityY * delta;
@@ -650,12 +641,10 @@ function animate() {
         playerVisualY = GROUND_Y;
         velocityY = 0;
         isJumping = false;
-        // Return to running
         playAnimation(['Run', 'Running', 'run', 'Walk', 'walk']);
       }
     }
 
-    // Slide timer
     if (isSliding) {
       slideTimer -= delta;
       if (slideTimer <= 0) {
@@ -664,28 +653,23 @@ function animate() {
       }
     }
 
-    // Apply visual Y to the whole player group (model + fallback box)
     player.position.y = playerVisualY;
 
-    // Score
     score += SCORE_PER_SECOND * delta;
     scoreEl.textContent = 'Score: ' + Math.floor(score);
 
-    // Spawn obstacles
     spawnTimer += delta;
     if (spawnTimer >= SPAWN_INTERVAL) {
       spawnTimer = 0;
       spawnObstacleRow();
     }
 
-    // Spawn coins
     coinSpawnTimer += delta;
     if (coinSpawnTimer >= SPAWN_INTERVAL) {
       coinSpawnTimer = 0;
       spawnCoins();
     }
 
-    // Move obstacles
     for (let i = obstacles.length - 1; i >= 0; i--) {
       const o = obstacles[i];
       o.position.z += worldSpeed * delta;
@@ -695,7 +679,6 @@ function animate() {
       }
     }
 
-    // Move + spin coins
     coinSpin += COIN_SPIN_SPEED * delta;
     for (let i = coins.length - 1; i >= 0; i--) {
       const c = coins[i];
@@ -709,12 +692,10 @@ function animate() {
       }
     }
 
-    // Collisions
     checkObstacleCollisions();
     checkCoinCollisions();
   }
 
-  // Debug
   debug.textContent =
     'L' + speedLevel +
     ' | spd: ' + worldSpeed.toFixed(1) +
