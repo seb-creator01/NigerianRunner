@@ -50,3 +50,18 @@ html, body {
   z-index: 10;
   white-space: nowrap;
 }
+#debug {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  color: #00ff00;
+  background: rgba(0, 0, 0, 0.8);
+  padding: 8px 14px;
+  border-radius: 6px;
+  font-family: monospace;
+  font-size: 14px;
+  pointer-events: none;
+  z-index: 10;
+  white-space: nowrap;
+}
