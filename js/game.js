@@ -398,9 +398,7 @@ function setBestScore(v) {
 // ---------------------------------------------------------------
 // 14. CHARACTER LOADING
 // ---------------------------------------------------------------
-const CHARACTER_URL =
-  'https://threejs.org/examples/models/gltf/Soldier.glb';
-
+const CHARACTER_URL = 'Soldier.glb';
 const CHARACTER_SCALE = 1.0;
 const CHARACTER_ROTATION_Y = 0;
 
