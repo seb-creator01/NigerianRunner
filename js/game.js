@@ -93,16 +93,16 @@ scene.add(player);
 // Lane state
 let currentLane = STARTING_LANE;
 
-// Jump state
-const GROUND_Y = PLAYER_HEIGHT / 2;   // 1.0 — bottom of cube touches road
-const GRAVITY = -25;                  // negative = pulls down (units/sec²)
-const JUMP_VELOCITY = 10;             // initial upward speed (units/sec)
+// Jump state  (higher jump, gentler gravity = more airtime)
+const GROUND_Y = PLAYER_HEIGHT / 2;
+const GRAVITY = -20;
+const JUMP_VELOCITY = 15;
 let isJumping = false;
 let velocityY = 0;
 
-// Slide state
-const SLIDE_DURATION = 0.7;           // seconds
-const SLIDE_HEIGHT_SCALE = 0.5;       // 50% of normal height when sliding
+// Slide state  (much flatter + slightly longer)
+const SLIDE_DURATION = 0.8;
+const SLIDE_HEIGHT_SCALE = 0.3;
 let isSliding = false;
 let slideTimer = 0;
 
@@ -132,16 +132,16 @@ function flashHud(text) {
 // 10. ACTIONS
 // ---------------------------------------------------------------
 function tryJump() {
-  if (isJumping) return;      // already in the air
-  if (isSliding) return;      // can't jump while sliding
+  if (isJumping) return;
+  if (isSliding) return;
   isJumping = true;
   velocityY = JUMP_VELOCITY;
   flashHud('Jump 👆');
 }
 
 function trySlide() {
-  if (isSliding) return;      // already sliding
-  if (isJumping) return;      // can't slide mid-air
+  if (isSliding) return;
+  if (isJumping) return;
   isSliding = true;
   slideTimer = SLIDE_DURATION;
   player.scale.y = SLIDE_HEIGHT_SCALE;
@@ -175,7 +175,7 @@ function handleTouchEnd(clientX, clientY) {
   const dy = clientY - touchStartY;
 
   if (Math.abs(dx) < SWIPE_THRESHOLD && Math.abs(dy) < SWIPE_THRESHOLD) {
-    return; // tap — ignore
+    return;
   }
 
   if (Math.abs(dx) > Math.abs(dy)) {
@@ -244,9 +244,9 @@ function animate() {
 
   // ---- Jump physics (Y) ----
   if (isJumping) {
-    velocityY += GRAVITY * delta;                 // apply gravity
-    player.position.y += velocityY * delta;       // move cube
-    if (player.position.y <= GROUND_Y) {          // landed?
+    velocityY += GRAVITY * delta;
+    player.position.y += velocityY * delta;
+    if (player.position.y <= GROUND_Y) {
       player.position.y = GROUND_Y;
       velocityY = 0;
       isJumping = false;
@@ -262,7 +262,7 @@ function animate() {
     }
   }
 
-  // Keep a sliding player's bottom glued to the ground
+  // Keep sliding player's bottom glued to the road
   const halfHeight = (PLAYER_HEIGHT * player.scale.y) / 2;
   if (!isJumping) {
     player.position.y = halfHeight;
