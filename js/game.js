@@ -80,13 +80,31 @@ const STRIPE_COUNT = 60;
 // ---------------------------------------------------------------
 // 7. PLAYER
 // ---------------------------------------------------------------
-const playerGeometry = new THREE.BoxGeometry(1, 2, 1);
+const PLAYER_WIDTH = 1;
+const PLAYER_HEIGHT = 2;
+const PLAYER_DEPTH = 1;
+
+const playerGeometry = new THREE.BoxGeometry(PLAYER_WIDTH, PLAYER_HEIGHT, PLAYER_DEPTH);
 const playerMaterial = new THREE.MeshStandardMaterial({ color: 0xff6600 });
 const player = new THREE.Mesh(playerGeometry, playerMaterial);
-player.position.set(LANE_X[STARTING_LANE], 1, 0);
+player.position.set(LANE_X[STARTING_LANE], PLAYER_HEIGHT / 2, 0);
 scene.add(player);
 
+// Lane state
 let currentLane = STARTING_LANE;
+
+// Jump state
+const GROUND_Y = PLAYER_HEIGHT / 2;   // 1.0 — bottom of cube touches road
+const GRAVITY = -25;                  // negative = pulls down (units/sec²)
+const JUMP_VELOCITY = 10;             // initial upward speed (units/sec)
+let isJumping = false;
+let velocityY = 0;
+
+// Slide state
+const SLIDE_DURATION = 0.7;           // seconds
+const SLIDE_HEIGHT_SCALE = 0.5;       // 50% of normal height when sliding
+let isSliding = false;
+let slideTimer = 0;
 
 // ---------------------------------------------------------------
 // 8. SPEEDS
@@ -95,16 +113,15 @@ const WORLD_SPEED = 12;
 const LANE_SLIDE_SPEED = 8;
 
 // ---------------------------------------------------------------
-// 9. HUD + DEBUG PANEL
+// 9. HUD + DEBUG
 // ---------------------------------------------------------------
 const hud = document.createElement('div');
 hud.id = 'hud';
-hud.textContent = 'Swipe left or right to change lanes';
+hud.textContent = 'Swipe L/R to move · Up to jump · Down to slide';
 document.body.appendChild(hud);
 
 const debug = document.createElement('div');
 debug.id = 'debug';
-debug.textContent = 'debug';
 document.body.appendChild(debug);
 
 function flashHud(text) {
@@ -112,7 +129,37 @@ function flashHud(text) {
 }
 
 // ---------------------------------------------------------------
-// 10. SWIPE DETECTION
+// 10. ACTIONS
+// ---------------------------------------------------------------
+function tryJump() {
+  if (isJumping) return;      // already in the air
+  if (isSliding) return;      // can't jump while sliding
+  isJumping = true;
+  velocityY = JUMP_VELOCITY;
+  flashHud('Jump 👆');
+}
+
+function trySlide() {
+  if (isSliding) return;      // already sliding
+  if (isJumping) return;      // can't slide mid-air
+  isSliding = true;
+  slideTimer = SLIDE_DURATION;
+  player.scale.y = SLIDE_HEIGHT_SCALE;
+  flashHud('Slide 👇');
+}
+
+function moveLane(direction) {
+  if (direction === 'left' && currentLane > 0) {
+    currentLane -= 1;
+    flashHud('Lane ' + (currentLane + 1) + ' 👈');
+  } else if (direction === 'right' && currentLane < 2) {
+    currentLane += 1;
+    flashHud('Lane ' + (currentLane + 1) + ' 👉');
+  }
+}
+
+// ---------------------------------------------------------------
+// 11. SWIPE DETECTION
 // ---------------------------------------------------------------
 const SWIPE_THRESHOLD = 30;
 let touchStartX = 0;
@@ -128,20 +175,14 @@ function handleTouchEnd(clientX, clientY) {
   const dy = clientY - touchStartY;
 
   if (Math.abs(dx) < SWIPE_THRESHOLD && Math.abs(dy) < SWIPE_THRESHOLD) {
-    return;
+    return; // tap — ignore
   }
 
   if (Math.abs(dx) > Math.abs(dy)) {
-    if (dx > 0) {
-      if (currentLane < 2) currentLane += 1;
-      flashHud('Lane ' + (currentLane + 1) + ' 👉');
-    } else {
-      if (currentLane > 0) currentLane -= 1;
-      flashHud('Lane ' + (currentLane + 1) + ' 👈');
-    }
+    moveLane(dx > 0 ? 'right' : 'left');
   } else {
-    if (dy < 0) flashHud('Jump 👆 (coming soon)');
-    else        flashHud('Slide 👇 (coming soon)');
+    if (dy < 0) tryJump();
+    else        trySlide();
   }
 }
 
@@ -163,6 +204,7 @@ touchLayer.addEventListener('touchmove', (e) => {
   e.preventDefault();
 }, { passive: false });
 
+// Mouse fallback (desktop testing)
 touchLayer.addEventListener('mousedown', (e) => {
   handleTouchStart(e.clientX, e.clientY);
 });
@@ -171,7 +213,7 @@ touchLayer.addEventListener('mouseup', (e) => {
 });
 
 // ---------------------------------------------------------------
-// 11. GAME LOOP
+// 12. GAME LOOP
 // ---------------------------------------------------------------
 const clock = new THREE.Clock();
 
@@ -180,7 +222,7 @@ function animate() {
 
   const delta = clock.getDelta();
 
-  // World scroll
+  // ---- World scroll ----
   road.position.z += WORLD_SPEED * delta;
   if (road.position.z > ROAD_LENGTH / 2 + 10) {
     road.position.z -= ROAD_LENGTH;
@@ -193,15 +235,46 @@ function animate() {
     }
   });
 
-  // Player lane slide
+  // ---- Lane slide (X) ----
   const targetX = LANE_X[currentLane];
   player.position.x += (targetX - player.position.x) * LANE_SLIDE_SPEED * delta;
+  if (Math.abs(targetX - player.position.x) < 0.001) {
+    player.position.x = targetX;
+  }
 
-  // Update debug panel every frame
+  // ---- Jump physics (Y) ----
+  if (isJumping) {
+    velocityY += GRAVITY * delta;                 // apply gravity
+    player.position.y += velocityY * delta;       // move cube
+    if (player.position.y <= GROUND_Y) {          // landed?
+      player.position.y = GROUND_Y;
+      velocityY = 0;
+      isJumping = false;
+    }
+  }
+
+  // ---- Slide timer ----
+  if (isSliding) {
+    slideTimer -= delta;
+    if (slideTimer <= 0) {
+      isSliding = false;
+      player.scale.y = 1;
+    }
+  }
+
+  // Keep a sliding player's bottom glued to the ground
+  const halfHeight = (PLAYER_HEIGHT * player.scale.y) / 2;
+  if (!isJumping) {
+    player.position.y = halfHeight;
+  }
+
+  // ---- Debug text ----
   debug.textContent =
     'lane: ' + currentLane +
-    ' | targetX: ' + targetX.toFixed(2) +
-    ' | playerX: ' + player.position.x.toFixed(2);
+    ' | y: ' + player.position.y.toFixed(2) +
+    ' | vy: ' + velocityY.toFixed(2) +
+    ' | jump: ' + isJumping +
+    ' | slide: ' + isSliding;
 
   renderer.render(scene, camera);
 }
@@ -209,7 +282,7 @@ function animate() {
 animate();
 
 // ---------------------------------------------------------------
-// 12. RESIZE
+// 13. RESIZE
 // ---------------------------------------------------------------
 window.addEventListener('resize', () => {
   camera.aspect = window.innerWidth / window.innerHeight;
