@@ -31,14 +31,12 @@ html, body {
   height: 100%;
   z-index: 5;
   touch-action: none;
-  -webkit-user-select: none;
-  user-select: none;
 }
 
 /* ---------- Top HUD ---------- */
 #hud {
   position: fixed;
-  top: 20px;
+  top: 80px;
   left: 50%;
   transform: translateX(-50%);
   color: #ffffff;
@@ -161,6 +159,44 @@ html, body {
   font-weight: bold;
 }
 
+/* ---------- Loading Screen ---------- */
+.loading-bar-outer {
+  width: 260px;
+  height: 18px;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 10px;
+  overflow: hidden;
+  margin: 20px 0 8px;
+  border: 2px solid rgba(255, 203, 107, 0.4);
+}
+
+.loading-bar-fill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, #ff9d3a, #ffcb6b);
+  transition: width 0.15s linear;
+}
+
+.loading-text {
+  color: #fff5dd;
+  font-size: 15px;
+  font-weight: normal;
+  margin-top: 4px;
+}
+
+/* ---------- Developer credit ---------- */
+.developed-credit {
+  position: absolute;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  color: rgba(255, 255, 255, 0.55) !important;
+  font-size: 13px !important;
+  font-weight: normal !important;
+  letter-spacing: 1px;
+  white-space: nowrap;
+}
+
 /* ---------- Buttons ---------- */
 .big-btn {
   padding: 18px 56px;
@@ -179,6 +215,11 @@ html, body {
 .big-btn:active {
   transform: translateY(4px);
   box-shadow: 0 2px 0 #7a3a00, 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+.big-btn:disabled {
+  filter: grayscale(0.5) brightness(0.6);
+  cursor: not-allowed;
 }
 
 .small-btn {
