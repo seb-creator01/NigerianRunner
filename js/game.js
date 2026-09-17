@@ -325,7 +325,6 @@ let isSliding;
 let slideTimer;
 let spawnTimer;
 let coinSpawnTimer;
-let gameOverActive;
 let score;
 let obstacles;
 let coins;
@@ -336,6 +335,9 @@ let runTime;
 let speedLevel;
 
 let playerVisualY = 0;
+
+// 'menu' | 'playing' | 'paused' | 'gameover'
+let gameState = 'menu';
 
 // ---------------------------------------------------------------
 // 12. HUD ELEMENTS
@@ -350,19 +352,53 @@ debug.id = 'debug';
 document.body.appendChild(debug);
 
 const scoreEl = document.getElementById('score');
+const mainMenuEl = document.getElementById('main-menu');
+const menuBestEl = document.getElementById('menu-best');
+const settingsMenuEl = document.getElementById('settings-menu');
+const pauseMenuEl = document.getElementById('pause-menu');
 const gameOverEl = document.getElementById('game-over');
 const finalScoreEl = document.getElementById('final-score');
 const bestScoreEl = document.getElementById('best-score');
+
+const playBtn = document.getElementById('play-btn');
+const settingsBtn = document.getElementById('settings-btn');
+const settingsBackBtn = document.getElementById('settings-back');
+const toggleSfxBtn = document.getElementById('toggle-sfx');
+const toggleMusicBtn = document.getElementById('toggle-music');
+const pauseBtn = document.getElementById('pause-btn');
+const resumeBtn = document.getElementById('resume-btn');
+const pauseQuitBtn = document.getElementById('pause-quit-btn');
 const restartBtn = document.getElementById('restart-btn');
+const menuBtn = document.getElementById('menu-btn');
 
 function flashHud(text) {
   hud.textContent = text;
 }
 
+function showScreen(el) {
+  // Hide all overlays, then show the requested one (or none)
+  [mainMenuEl, settingsMenuEl, pauseMenuEl, gameOverEl].forEach((o) => {
+    o.classList.add('hidden');
+  });
+  if (el) el.classList.remove('hidden');
+}
+
+function updatePauseBtnVisibility() {
+  if (gameState === 'playing') {
+    pauseBtn.classList.remove('hidden');
+  } else {
+    pauseBtn.classList.add('hidden');
+  }
+}
+
 // ---------------------------------------------------------------
-// 13. BEST SCORE
+// 13. BEST SCORE + SETTINGS STORAGE
 // ---------------------------------------------------------------
 const BEST_KEY = 'nigerianRunner.bestScore';
+const SETTINGS_KEY = 'nigerianRunner.settings';
+
+let sfxEnabled = true;
+let musicEnabled = true;
 
 function getBestScore() {
   const v = parseInt(localStorage.getItem(BEST_KEY) || '0', 10);
@@ -373,6 +409,32 @@ function setBestScore(v) {
   localStorage.setItem(BEST_KEY, String(v));
 }
 
+function loadSettings() {
+  try {
+    const raw = localStorage.getItem(SETTINGS_KEY);
+    if (!raw) return;
+    const s = JSON.parse(raw);
+    if (typeof s.sfxEnabled === 'boolean') sfxEnabled = s.sfxEnabled;
+    if (typeof s.musicEnabled === 'boolean') musicEnabled = s.musicEnabled;
+  } catch (e) {
+    // ignore corrupt settings
+  }
+}
+
+function saveSettings() {
+  localStorage.setItem(
+    SETTINGS_KEY,
+    JSON.stringify({ sfxEnabled, musicEnabled })
+  );
+}
+
+function updateSettingsUI() {
+  toggleSfxBtn.textContent = sfxEnabled ? 'ON' : 'OFF';
+  toggleSfxBtn.classList.toggle('off', !sfxEnabled);
+  toggleMusicBtn.textContent = musicEnabled ? 'ON' : 'OFF';
+  toggleMusicBtn.classList.toggle('off', !musicEnabled);
+}
+
 // ---------------------------------------------------------------
 // 14. CHARACTER LOADING
 // ---------------------------------------------------------------
@@ -380,7 +442,6 @@ const CHARACTER_URL = 'Soldier.glb';
 
 const CHARACTER_SCALE = 1.0;
 const CHARACTER_ROTATION_Y = 0;
-
 const ANIM_RUN = 'Run';
 
 const loader = new GLTFLoader();
@@ -517,7 +578,7 @@ function spawnCoins() {
 // 17. ACTIONS
 // ---------------------------------------------------------------
 function tryJump() {
-  if (gameOverActive) return;
+  if (gameState !== 'playing') return;
   if (isJumping) return;
   if (isSliding) return;
   isJumping = true;
@@ -527,7 +588,7 @@ function tryJump() {
 }
 
 function trySlide() {
-  if (gameOverActive) return;
+  if (gameState !== 'playing') return;
   if (isSliding) return;
   if (isJumping) return;
   isSliding = true;
@@ -537,7 +598,7 @@ function trySlide() {
 }
 
 function moveLane(direction) {
-  if (gameOverActive) return;
+  if (gameState !== 'playing') return;
   if (direction === 'left' && currentLane > 0) {
     currentLane -= 1;
     flashHud('Lane ' + (currentLane + 1) + ' 👈');
@@ -562,6 +623,8 @@ function handleTouchStart(clientX, clientY) {
 }
 
 function handleTouchEnd(clientX, clientY) {
+  if (gameState !== 'playing') return;
+
   const dx = clientX - touchStartX;
   const dy = clientY - touchStartY;
 
@@ -665,11 +728,12 @@ function checkCoinCollisions() {
 }
 
 // ---------------------------------------------------------------
-// 20. GAME OVER + RESTART
+// 20. GAME OVER
 // ---------------------------------------------------------------
 function gameOver() {
-  if (gameOverActive) return;
-  gameOverActive = true;
+  if (gameState !== 'playing') return;
+  gameState = 'gameover';
+  updatePauseBtnVisibility();
 
   const finalScore = Math.floor(score);
   const bestScore = getBestScore();
@@ -682,12 +746,16 @@ function gameOver() {
   }
 
   finalScoreEl.textContent = 'Score: ' + finalScore;
-  gameOverEl.classList.remove('hidden');
+  showScreen(gameOverEl);
   flashHud('💥 GAME OVER');
   playSound('crash');
 }
 
-function resetGame() {
+// ---------------------------------------------------------------
+// 21. START / RESET / PAUSE / MENU
+// ---------------------------------------------------------------
+function startRun() {
+  // Clear anything from the previous run
   obstacles.forEach((o) => scene.remove(o));
   obstacles.length = 0;
 
@@ -708,7 +776,6 @@ function resetGame() {
   spawnTimer = 0;
   coinSpawnTimer = 0;
   score = 0;
-  gameOverActive = false;
 
   worldSpeed = START_WORLD_SPEED;
   runTime = 0;
@@ -721,27 +788,131 @@ function resetGame() {
   });
 
   scoreEl.textContent = 'Score: 0';
-  gameOverEl.classList.add('hidden');
-  flashHud('Go! 🏃');
 
+  // Short grace period before the first spawns
   spawnTimer = -1.2;
   coinSpawnTimer = -0.6;
+
+  gameState = 'playing';
+  showScreen(null);
+  updatePauseBtnVisibility();
+  flashHud('Go! 🏃');
 }
 
+function goToMainMenu() {
+  // Clear world
+  obstacles.forEach((o) => scene.remove(o));
+  obstacles.length = 0;
+  coins.forEach((c) => scene.remove(c));
+  coins.length = 0;
+
+  player.position.set(LANE_X[STARTING_LANE], 0, 0);
+  playerVisualY = 0;
+  if (characterModel) characterModel.scale.y = CHARACTER_SCALE;
+
+  isJumping = false;
+  isSliding = false;
+  velocityY = 0;
+  slideTimer = 0;
+  score = 0;
+  worldSpeed = START_WORLD_SPEED;
+  runTime = 0;
+  speedLevel = 1;
+
+  road.position.z = -ROAD_LENGTH / 2 + 10;
+  environmentGroup.children.forEach((obj) => {
+    obj.position.z = obj.userData.initialZ;
+  });
+
+  scoreEl.textContent = 'Score: 0';
+  menuBestEl.textContent = 'Best Score: ' + getBestScore();
+
+  gameState = 'menu';
+  showScreen(mainMenuEl);
+  updatePauseBtnVisibility();
+  flashHud('Welcome 👋');
+}
+
+function pauseGame() {
+  if (gameState !== 'playing') return;
+  gameState = 'paused';
+  showScreen(pauseMenuEl);
+  updatePauseBtnVisibility();
+  flashHud('Paused ⏸');
+}
+
+function resumeGame() {
+  if (gameState !== 'paused') return;
+  gameState = 'playing';
+  showScreen(null);
+  updatePauseBtnVisibility();
+  flashHud('Go! 🏃');
+}
+
+// ---------------------------------------------------------------
+// 22. BUTTON WIRING
+// ---------------------------------------------------------------
+playBtn.addEventListener('click', () => {
+  initAudio();
+  unlockAudio();
+  startRun();
+});
+
+settingsBtn.addEventListener('click', () => {
+  updateSettingsUI();
+  showScreen(settingsMenuEl);
+});
+
+settingsBackBtn.addEventListener('click', () => {
+  showScreen(mainMenuEl);
+});
+
+toggleSfxBtn.addEventListener('click', () => {
+  sfxEnabled = !sfxEnabled;
+  saveSettings();
+  updateSettingsUI();
+});
+
+toggleMusicBtn.addEventListener('click', () => {
+  musicEnabled = !musicEnabled;
+  saveSettings();
+  updateSettingsUI();
+});
+
+pauseBtn.addEventListener('click', () => {
+  pauseGame();
+});
+
+resumeBtn.addEventListener('click', () => {
+  resumeGame();
+});
+
+pauseQuitBtn.addEventListener('click', () => {
+  goToMainMenu();
+});
+
 restartBtn.addEventListener('click', () => {
-  resetGame();
+  startRun();
+});
+
+menuBtn.addEventListener('click', () => {
+  goToMainMenu();
 });
 
 // ---------------------------------------------------------------
-// 21. INITIALIZE
+// 23. INITIALIZE
 // ---------------------------------------------------------------
 obstacles = [];
 coins = [];
 coinSpin = 0;
-resetGame();
+loadSettings();
+updateSettingsUI();
+menuBestEl.textContent = 'Best Score: ' + getBestScore();
+showScreen(mainMenuEl);
+updatePauseBtnVisibility();
 
 // ---------------------------------------------------------------
-// 22. SOUND SYSTEM (Web Audio API — no files needed)
+// 24. SOUND SYSTEM
 // ---------------------------------------------------------------
 let audioCtx = null;
 
@@ -754,7 +925,6 @@ function initAudio() {
   }
 }
 
-// Unlock audio on first user interaction (required by mobile browsers)
 function unlockAudio() {
   initAudio();
   if (audioCtx && audioCtx.state === 'suspended') {
@@ -762,12 +932,9 @@ function unlockAudio() {
   }
 }
 
-touchLayer.addEventListener('touchstart', unlockAudio, { once: false, passive: true });
-touchLayer.addEventListener('mousedown', unlockAudio, { once: false });
+touchLayer.addEventListener('touchstart', unlockAudio, { passive: true });
+touchLayer.addEventListener('mousedown', unlockAudio);
 
-// ---- Sound generators ----
-
-// Simple oscillator beep with envelope
 function playBeep(frequency, duration, type = 'sine', volume = 0.15) {
   if (!audioCtx) return;
   const now = audioCtx.currentTime;
@@ -784,7 +951,6 @@ function playBeep(frequency, duration, type = 'sine', volume = 0.15) {
   osc.stop(now + duration);
 }
 
-// Noise burst (for whoosh/slide/crash)
 function playNoise(duration, filterFreq, volume = 0.15, sweepTo = null) {
   if (!audioCtx) return;
   const now = audioCtx.currentTime;
@@ -816,34 +982,29 @@ function playNoise(duration, filterFreq, volume = 0.15, sweepTo = null) {
   source.stop(now + duration);
 }
 
-// ---- Named sounds ----
 function playSound(name) {
   if (!audioCtx) return;
+  if (!sfxEnabled) return;
 
   switch (name) {
     case 'coin':
-      // Bright double-ding
       playBeep(880, 0.08, 'triangle', 0.18);
       setTimeout(() => playBeep(1320, 0.12, 'triangle', 0.18), 60);
       break;
 
     case 'jump':
-      // Rising whoosh
       playNoise(0.18, 400, 0.12, 1200);
       break;
 
     case 'slide':
-      // Lower swoosh
       playNoise(0.25, 250, 0.12, 150);
       break;
 
     case 'whoosh':
-      // Quick swish for lane change
       playNoise(0.12, 600, 0.08, 300);
       break;
 
     case 'crash':
-      // Deep thud + noise
       playBeep(120, 0.4, 'sawtooth', 0.25);
       playNoise(0.4, 200, 0.2, 80);
       break;
@@ -851,12 +1012,11 @@ function playSound(name) {
 }
 
 // ---------------------------------------------------------------
-// 23. GAME LOOP
+// 25. GAME LOOP
 // ---------------------------------------------------------------
 const clock = new THREE.Clock();
 const SCORE_PER_SECOND = 10;
 
-// Footstep timing
 let footstepTimer = 0;
 const FOOTSTEP_INTERVAL = 0.28;
 
@@ -865,28 +1025,30 @@ function animate() {
 
   const delta = Math.min(clock.getDelta(), 0.1);
 
+  // Always animate the mixer (so idle animation plays on menu)
   if (mixer) mixer.update(delta);
 
-  road.position.z += worldSpeed * delta;
-  if (road.position.z > ROAD_LENGTH / 2 + 10) {
-    road.position.z -= ROAD_LENGTH;
-  }
-
-  stripeGroup.children.forEach((stripe) => {
-    stripe.position.z += worldSpeed * delta;
-    if (stripe.position.z > 6) {
-      stripe.position.z -= STRIPE_COUNT * STRIPE_SPACING;
+  // World scroll only when playing
+  if (gameState === 'playing') {
+    road.position.z += worldSpeed * delta;
+    if (road.position.z > ROAD_LENGTH / 2 + 10) {
+      road.position.z -= ROAD_LENGTH;
     }
-  });
 
-  environmentGroup.children.forEach((obj) => {
-    obj.position.z += worldSpeed * delta;
-    if (obj.position.z > ENV_START_Z) {
-      obj.position.z -= ENV_LENGTH;
-    }
-  });
+    stripeGroup.children.forEach((stripe) => {
+      stripe.position.z += worldSpeed * delta;
+      if (stripe.position.z > 6) {
+        stripe.position.z -= STRIPE_COUNT * STRIPE_SPACING;
+      }
+    });
 
-  if (!gameOverActive) {
+    environmentGroup.children.forEach((obj) => {
+      obj.position.z += worldSpeed * delta;
+      if (obj.position.z > ENV_START_Z) {
+        obj.position.z -= ENV_LENGTH;
+      }
+    });
+
     runTime += delta;
     worldSpeed = Math.min(
       START_WORLD_SPEED + runTime * SPEED_INCREASE_PER_SECOND,
@@ -937,7 +1099,6 @@ function animate() {
     const sizeFactor = Math.max(0.4, 1 - jumpHeight * 0.08);
     shadowDisc.scale.set(sizeFactor, sizeFactor, 1);
 
-    // Footstep sound — only when running on the ground
     if (!isJumping && audioCtx) {
       footstepTimer += delta;
       if (footstepTimer >= FOOTSTEP_INTERVAL) {
@@ -988,10 +1149,10 @@ function animate() {
   }
 
   debug.textContent =
-    'L' + speedLevel +
+    'state: ' + gameState +
+    ' | L' + speedLevel +
     ' | spd: ' + worldSpeed.toFixed(1) +
-    ' | ' + (characterModel ? 'model✓' : 'box') +
-    ' | ' + (gameOverActive ? 'GAME OVER' : 'running');
+    ' | ' + (characterModel ? 'model✓' : 'box');
 
   renderer.render(scene, camera);
 }
@@ -999,7 +1160,7 @@ function animate() {
 animate();
 
 // ---------------------------------------------------------------
-// 24. RESIZE
+// 26. RESIZE
 // ---------------------------------------------------------------
 window.addEventListener('resize', () => {
   camera.aspect = window.innerWidth / window.innerHeight;
