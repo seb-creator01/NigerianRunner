@@ -18,11 +18,11 @@ container.appendChild(renderer.domElement);
 renderer.shadowMap.enabled = false;
 
 // ---------------------------------------------------------------
-// 2. SCENE + FOG — warm Nigerian afternoon
+// 2. SCENE + FOG
 // ---------------------------------------------------------------
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0xf5c98a);   // ⬅️ warm sandy sky
-scene.fog = new THREE.Fog(0xf5c98a, 35, 70);    // ⬅️ matches sky
+scene.background = new THREE.Color(0xf5c98a);
+scene.fog = new THREE.Fog(0xf5c98a, 35, 70);
 
 // ---------------------------------------------------------------
 // 3. CAMERA
@@ -37,10 +37,10 @@ camera.position.set(0, 5, 10);
 camera.lookAt(0, 1.5, -5);
 
 // ---------------------------------------------------------------
-// 4. LIGHTING — warm sun
+// 4. LIGHTING
 // ---------------------------------------------------------------
-scene.add(new THREE.AmbientLight(0xffe8c0, 0.9));       // ⬅️ warm ambient
-const sunLight = new THREE.DirectionalLight(0xfff1d0, 1.1); // ⬅️ warm sun
+scene.add(new THREE.AmbientLight(0xffe8c0, 0.9));
+const sunLight = new THREE.DirectionalLight(0xfff1d0, 1.1);
 sunLight.position.set(5, 10, 5);
 scene.add(sunLight);
 
@@ -80,17 +80,15 @@ const STRIPE_COUNT = 60;
 });
 
 // ---------------------------------------------------------------
-// 6b. ENVIRONMENT — Nigerian urban roadside
+// 6b. ENVIRONMENT
 // ---------------------------------------------------------------
-// Everything here scrolls with the world, wrapping when it passes the camera.
 const environmentGroup = new THREE.Group();
 scene.add(environmentGroup);
 
-const ENV_LENGTH = 200;   // total length of the environment cycle
-const ENV_START_Z = 10;   // where the cycle starts (near camera)
+const ENV_LENGTH = 200;
+const ENV_START_Z = 10;
 const ENV_END_Z = ENV_START_Z - ENV_LENGTH;
 
-// Sidewalk strips (thin pale concrete bands along both sides)
 const sidewalkGeometry = new THREE.BoxGeometry(1.5, 0.15, ROAD_LENGTH);
 const sidewalkMaterial = new THREE.MeshStandardMaterial({ color: 0xd8c9a8 });
 [-1, 1].forEach((side) => {
@@ -99,17 +97,10 @@ const sidewalkMaterial = new THREE.MeshStandardMaterial({ color: 0xd8c9a8 });
   scene.add(sidewalk);
 });
 
-// ---- Building colors (Nigerian urban palette) ----
 const BUILDING_COLORS = [
-  0xc17a4a, // terracotta
-  0xa8603a, // burnt orange
-  0xd9a066, // sandy ochre
-  0x8c5a3c, // cocoa brown
-  0xe0c088, // sun-bleached yellow
-  0x9c6a4c, // muddy brown
+  0xc17a4a, 0xa8603a, 0xd9a066, 0x8c5a3c, 0xe0c088, 0x9c6a4c,
 ];
 
-// A helper that builds a simple blocky "building"
 function makeBuilding(width, height, depth, x, z, side) {
   const color =
     BUILDING_COLORS[Math.floor(Math.random() * BUILDING_COLORS.length)];
@@ -119,14 +110,12 @@ function makeBuilding(width, height, depth, x, z, side) {
   const building = new THREE.Mesh(geo, mat);
   building.position.set(x, height / 2, z);
 
-  // Add a darker "roof" cap on top
   const roofGeo = new THREE.BoxGeometry(width + 0.15, 0.2, depth + 0.15);
   const roofMat = new THREE.MeshStandardMaterial({ color: 0x3a2a1a });
   const roof = new THREE.Mesh(roofGeo, roofMat);
   roof.position.y = height / 2 + 0.1;
   building.add(roof);
 
-  // Add a few "windows" — small dark boxes on the front face
   const windowCount = Math.max(1, Math.floor(height / 2));
   for (let i = 0; i < windowCount; i++) {
     const winGeo = new THREE.BoxGeometry(0.35, 0.5, 0.05);
@@ -135,7 +124,6 @@ function makeBuilding(width, height, depth, x, z, side) {
       emissive: 0x101520,
     });
     const win = new THREE.Mesh(winGeo, winMat);
-    // Face toward the road: if side is -1 (left side), face +x; else face -x
     const faceX = (width / 2 + 0.03) * (side === -1 ? 1 : -1);
     win.position.set(faceX, -height / 2 + 1.2 + i * 1.6, 0);
     win.rotation.y = side === -1 ? 0 : Math.PI;
@@ -146,14 +134,12 @@ function makeBuilding(width, height, depth, x, z, side) {
   return building;
 }
 
-// Generate buildings along both sides
-const BUILDING_INTERVAL = 8;   // spacing between buildings along Z
-const ROAD_EDGE = ROAD_WIDTH / 2 + 2.5; // sidewalk outer edge
+const BUILDING_INTERVAL = 8;
+const ROAD_EDGE = ROAD_WIDTH / 2 + 2.5;
 
 for (let side of [-1, 1]) {
   let z = ENV_START_Z - 3;
   while (z > ENV_END_Z) {
-    // Randomize size a bit for variety
     const w = 3 + Math.random() * 2.5;
     const h = 3 + Math.random() * 4;
     const d = 4 + Math.random() * 3;
@@ -162,7 +148,6 @@ for (let side of [-1, 1]) {
     const building = makeBuilding(w, h, d, x, z, side);
     environmentGroup.add(building);
 
-    // Occasionally add a small kiosk between buildings
     if (Math.random() < 0.4) {
       const kioskW = 1.2 + Math.random() * 0.6;
       const kioskH = 1.2 + Math.random() * 0.6;
@@ -176,18 +161,15 @@ for (let side of [-1, 1]) {
   }
 }
 
-// ---- Palm-ish trees (simple cylinders + sphere tufts) ----
 function makePalm(x, z) {
   const group = new THREE.Group();
 
-  // Trunk
   const trunkGeo = new THREE.CylinderGeometry(0.1, 0.15, 2.5, 6);
   const trunkMat = new THREE.MeshStandardMaterial({ color: 0x6b4423 });
   const trunk = new THREE.Mesh(trunkGeo, trunkMat);
   trunk.position.y = 1.25;
   group.add(trunk);
 
-  // Tuft — a few flattened spheres
   const tuftMat = new THREE.MeshStandardMaterial({ color: 0x2f6b3a });
   for (let i = 0; i < 5; i++) {
     const tuftGeo = new THREE.SphereGeometry(0.5, 6, 4);
@@ -203,7 +185,6 @@ function makePalm(x, z) {
   return group;
 }
 
-// Sprinkle some palms along both sides
 for (let i = 0; i < 12; i++) {
   const side = Math.random() < 0.5 ? -1 : 1;
   const z = ENV_START_Z - Math.random() * ENV_LENGTH;
@@ -211,7 +192,6 @@ for (let i = 0; i < 12; i++) {
   environmentGroup.add(makePalm(x, z));
 }
 
-// ---- Lamp posts along the road edge ----
 function makeLampPost(x, z) {
   const group = new THREE.Group();
 
@@ -242,7 +222,6 @@ function makeLampPost(x, z) {
   return group;
 }
 
-// Lamp posts at regular intervals
 for (let side of [-1, 1]) {
   for (let i = 0; i < 8; i++) {
     const z = ENV_START_Z - i * (ENV_LENGTH / 8);
@@ -251,7 +230,6 @@ for (let side of [-1, 1]) {
   }
 }
 
-// Store the initial Z of every environment object so we can wrap them
 environmentGroup.children.forEach((obj) => {
   obj.userData.initialZ = obj.position.z;
 });
@@ -399,6 +377,7 @@ function setBestScore(v) {
 // 14. CHARACTER LOADING
 // ---------------------------------------------------------------
 const CHARACTER_URL = 'Soldier.glb';
+
 const CHARACTER_SCALE = 1.0;
 const CHARACTER_ROTATION_Y = 0;
 
@@ -544,6 +523,7 @@ function tryJump() {
   isJumping = true;
   velocityY = JUMP_VELOCITY;
   flashHud('Jump 👆');
+  playSound('jump');
 }
 
 function trySlide() {
@@ -553,6 +533,7 @@ function trySlide() {
   isSliding = true;
   slideTimer = SLIDE_DURATION;
   flashHud('Slide 👇');
+  playSound('slide');
 }
 
 function moveLane(direction) {
@@ -560,9 +541,11 @@ function moveLane(direction) {
   if (direction === 'left' && currentLane > 0) {
     currentLane -= 1;
     flashHud('Lane ' + (currentLane + 1) + ' 👈');
+    playSound('whoosh');
   } else if (direction === 'right' && currentLane < 2) {
     currentLane += 1;
     flashHud('Lane ' + (currentLane + 1) + ' 👉');
+    playSound('whoosh');
   }
 }
 
@@ -677,6 +660,7 @@ function checkCoinCollisions() {
     coins.splice(i, 1);
     score += COIN_VALUE;
     flashHud('+' + COIN_VALUE + ' 🪙');
+    playSound('coin');
   }
 }
 
@@ -700,6 +684,7 @@ function gameOver() {
   finalScoreEl.textContent = 'Score: ' + finalScore;
   gameOverEl.classList.remove('hidden');
   flashHud('💥 GAME OVER');
+  playSound('crash');
 }
 
 function resetGame() {
@@ -731,7 +716,6 @@ function resetGame() {
 
   road.position.z = -ROAD_LENGTH / 2 + 10;
 
-  // Reset environment positions
   environmentGroup.children.forEach((obj) => {
     obj.position.z = obj.userData.initialZ;
   });
@@ -757,10 +741,124 @@ coinSpin = 0;
 resetGame();
 
 // ---------------------------------------------------------------
-// 22. GAME LOOP
+// 22. SOUND SYSTEM (Web Audio API — no files needed)
+// ---------------------------------------------------------------
+let audioCtx = null;
+
+function initAudio() {
+  if (audioCtx) return;
+  try {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  } catch (e) {
+    console.warn('Web Audio not supported:', e);
+  }
+}
+
+// Unlock audio on first user interaction (required by mobile browsers)
+function unlockAudio() {
+  initAudio();
+  if (audioCtx && audioCtx.state === 'suspended') {
+    audioCtx.resume();
+  }
+}
+
+touchLayer.addEventListener('touchstart', unlockAudio, { once: false, passive: true });
+touchLayer.addEventListener('mousedown', unlockAudio, { once: false });
+
+// ---- Sound generators ----
+
+// Simple oscillator beep with envelope
+function playBeep(frequency, duration, type = 'sine', volume = 0.15) {
+  if (!audioCtx) return;
+  const now = audioCtx.currentTime;
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = type;
+  osc.frequency.setValueAtTime(frequency, now);
+  gain.gain.setValueAtTime(0, now);
+  gain.gain.linearRampToValueAtTime(volume, now + 0.01);
+  gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+  osc.connect(gain);
+  gain.connect(audioCtx.destination);
+  osc.start(now);
+  osc.stop(now + duration);
+}
+
+// Noise burst (for whoosh/slide/crash)
+function playNoise(duration, filterFreq, volume = 0.15, sweepTo = null) {
+  if (!audioCtx) return;
+  const now = audioCtx.currentTime;
+  const sampleCount = Math.floor(audioCtx.sampleRate * duration);
+  const buffer = audioCtx.createBuffer(1, sampleCount, audioCtx.sampleRate);
+  const data = buffer.getChannelData(0);
+  for (let i = 0; i < sampleCount; i++) {
+    data[i] = Math.random() * 2 - 1;
+  }
+  const source = audioCtx.createBufferSource();
+  source.buffer = buffer;
+
+  const filter = audioCtx.createBiquadFilter();
+  filter.type = 'bandpass';
+  filter.frequency.setValueAtTime(filterFreq, now);
+  if (sweepTo !== null) {
+    filter.frequency.exponentialRampToValueAtTime(sweepTo, now + duration);
+  }
+  filter.Q.value = 1.2;
+
+  const gain = audioCtx.createGain();
+  gain.gain.setValueAtTime(volume, now);
+  gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+
+  source.connect(filter);
+  filter.connect(gain);
+  gain.connect(audioCtx.destination);
+  source.start(now);
+  source.stop(now + duration);
+}
+
+// ---- Named sounds ----
+function playSound(name) {
+  if (!audioCtx) return;
+
+  switch (name) {
+    case 'coin':
+      // Bright double-ding
+      playBeep(880, 0.08, 'triangle', 0.18);
+      setTimeout(() => playBeep(1320, 0.12, 'triangle', 0.18), 60);
+      break;
+
+    case 'jump':
+      // Rising whoosh
+      playNoise(0.18, 400, 0.12, 1200);
+      break;
+
+    case 'slide':
+      // Lower swoosh
+      playNoise(0.25, 250, 0.12, 150);
+      break;
+
+    case 'whoosh':
+      // Quick swish for lane change
+      playNoise(0.12, 600, 0.08, 300);
+      break;
+
+    case 'crash':
+      // Deep thud + noise
+      playBeep(120, 0.4, 'sawtooth', 0.25);
+      playNoise(0.4, 200, 0.2, 80);
+      break;
+  }
+}
+
+// ---------------------------------------------------------------
+// 23. GAME LOOP
 // ---------------------------------------------------------------
 const clock = new THREE.Clock();
 const SCORE_PER_SECOND = 10;
+
+// Footstep timing
+let footstepTimer = 0;
+const FOOTSTEP_INTERVAL = 0.28;
 
 function animate() {
   requestAnimationFrame(animate);
@@ -769,13 +867,11 @@ function animate() {
 
   if (mixer) mixer.update(delta);
 
-  // Road scroll
   road.position.z += worldSpeed * delta;
   if (road.position.z > ROAD_LENGTH / 2 + 10) {
     road.position.z -= ROAD_LENGTH;
   }
 
-  // Stripes
   stripeGroup.children.forEach((stripe) => {
     stripe.position.z += worldSpeed * delta;
     if (stripe.position.z > 6) {
@@ -783,7 +879,6 @@ function animate() {
     }
   });
 
-  // Environment scroll (all buildings, palms, lamps)
   environmentGroup.children.forEach((obj) => {
     obj.position.z += worldSpeed * delta;
     if (obj.position.z > ENV_START_Z) {
@@ -842,6 +937,15 @@ function animate() {
     const sizeFactor = Math.max(0.4, 1 - jumpHeight * 0.08);
     shadowDisc.scale.set(sizeFactor, sizeFactor, 1);
 
+    // Footstep sound — only when running on the ground
+    if (!isJumping && audioCtx) {
+      footstepTimer += delta;
+      if (footstepTimer >= FOOTSTEP_INTERVAL) {
+        footstepTimer = 0;
+        playNoise(0.05, 200, 0.05, 100);
+      }
+    }
+
     score += SCORE_PER_SECOND * delta;
     scoreEl.textContent = 'Score: ' + Math.floor(score);
 
@@ -895,7 +999,7 @@ function animate() {
 animate();
 
 // ---------------------------------------------------------------
-// 23. RESIZE
+// 24. RESIZE
 // ---------------------------------------------------------------
 window.addEventListener('resize', () => {
   camera.aspect = window.innerWidth / window.innerHeight;
