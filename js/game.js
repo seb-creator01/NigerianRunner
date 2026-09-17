@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
 // ---------------------------------------------------------------
 // 1. RENDERER
@@ -84,26 +85,39 @@ const PLAYER_WIDTH = 1;
 const PLAYER_HEIGHT = 2;
 const PLAYER_DEPTH = 1;
 
-const playerGeometry = new THREE.BoxGeometry(PLAYER_WIDTH, PLAYER_HEIGHT, PLAYER_DEPTH);
-const playerMaterial = new THREE.MeshStandardMaterial({ color: 0xff6600 });
-const player = new THREE.Mesh(playerGeometry, playerMaterial);
-player.position.set(LANE_X[STARTING_LANE], PLAYER_HEIGHT / 2, 0);
+// We create a "player" object — an empty group at the player's position.
+// The visual (whether a fallback box or the loaded model) goes inside it.
+const player = new THREE.Group();
+player.position.set(LANE_X[STARTING_LANE], 0, 0);
 scene.add(player);
+
+// Fallback visual — a temporary box, visible until the real model loads
+const fallbackBox = new THREE.Mesh(
+  new THREE.BoxGeometry(PLAYER_WIDTH, PLAYER_HEIGHT, PLAYER_DEPTH),
+  new THREE.MeshStandardMaterial({ color: 0xff6600 })
+);
+fallbackBox.position.y = PLAYER_HEIGHT / 2;
+player.add(fallbackBox);
+
+// Variables related to the loaded character
+let characterModel = null;
+let mixer = null;
+const actions = {};     // name -> AnimationAction
+let currentAction = null;
 
 // ---------------------------------------------------------------
 // 8. TUNING
 // ---------------------------------------------------------------
-const GROUND_Y = PLAYER_HEIGHT / 2;
+const GROUND_Y = 0;                   // player group sits on the ground
 const GRAVITY = -20;
 const JUMP_VELOCITY = 15;
 const SLIDE_DURATION = 0.8;
 const SLIDE_HEIGHT_SCALE = 0.3;
 const LANE_SLIDE_SPEED = 8;
 
-// ---- SPEED (difficulty curve) ----
-const START_WORLD_SPEED = 12;         // slow and easy at the start
-const MAX_WORLD_SPEED = 24;           // hard cap so it never gets silly
-const SPEED_INCREASE_PER_SECOND = 0.3;// +0.3 units/sec every second
+const START_WORLD_SPEED = 12;
+const MAX_WORLD_SPEED = 24;
+const SPEED_INCREASE_PER_SECOND = 0.3;
 
 // ---------------------------------------------------------------
 // 9. OBSTACLE CONSTANTS
@@ -152,10 +166,12 @@ let obstacles;
 let coins;
 let coinSpin;
 
-// Difficulty
 let worldSpeed;
-let runTime;         // seconds survived this run
-let speedLevel;      // 1, 2, 3...
+let runTime;
+let speedLevel;
+
+// Player visual Y (separate from group Y, since character and box handle this differently)
+let playerVisualY = 0;
 
 // ---------------------------------------------------------------
 // 12. HUD ELEMENTS
@@ -194,7 +210,84 @@ function setBestScore(v) {
 }
 
 // ---------------------------------------------------------------
-// 14. OBSTACLE FACTORY
+// 14. CHARACTER LOADING
+// ---------------------------------------------------------------
+// This is a Quaternius public-domain (CC0) character with animations.
+// If it fails to load for any reason, the fallbackBox stays visible and the game keeps working.
+const CHARACTER_URL = 'https://threejs.org/examples/models/gltf/RobotExpressive/RobotExpressive.glb';
+
+const loader = new GLTFLoader();
+
+loader.load(
+  CHARACTER_URL,
+  (gltf) => {
+    characterModel = gltf.scene;
+
+    // Scale + orient
+    characterModel.scale.set(1.0, 1.0, 1.0);
+    characterModel.position.y = 0;
+    characterModel.rotation.y = Math.PI; // face away from camera (run forward)
+
+    // Add to player group, hide the fallback box
+    player.add(characterModel);
+    fallbackBox.visible = false;
+
+    // Set up animation mixer
+    mixer = new THREE.AnimationMixer(characterModel);
+
+    // Register all animations found in the file
+    gltf.animations.forEach((clip) => {
+      actions[clip.name] = mixer.clipAction(clip);
+    });
+
+    // Log animation names to the console for debugging
+    console.log('Loaded animations:', Object.keys(actions));
+
+    // Play the first available "run-like" animation
+    const runName =
+      pickAnimation(['Run', 'Running', 'run', 'Walk', 'walk']) ||
+      Object.keys(actions)[0];
+
+    if (runName) {
+      currentAction = actions[runName];
+      currentAction.play();
+    }
+
+    flashHud('Character loaded 🏃');
+  },
+  undefined,
+  (err) => {
+    // On error, keep the orange box; log the error
+    console.error('Failed to load character:', err);
+    flashHud('Character failed — using box');
+  }
+);
+
+// Helper: pick the first existing animation name from a list of candidates
+function pickAnimation(candidates) {
+  for (const name of candidates) {
+    if (actions[name]) return name;
+  }
+  return null;
+}
+
+// Helper: switch to a named animation (if it exists)
+function playAnimation(candidates) {
+  if (!mixer) return;
+  const name = pickAnimation(candidates);
+  if (!name) return;
+  if (currentAction === actions[name]) return;
+
+  const next = actions[name];
+  next.reset();
+  next.fadeIn(0.15);
+  if (currentAction) currentAction.fadeOut(0.15);
+  next.play();
+  currentAction = next;
+}
+
+// ---------------------------------------------------------------
+// 15. OBSTACLE FACTORY
 // ---------------------------------------------------------------
 function makeObstacleMesh(type) {
   let mesh;
@@ -248,7 +341,7 @@ function spawnObstacleRow() {
 }
 
 // ---------------------------------------------------------------
-// 15. COIN SPAWNING
+// 16. COIN SPAWNING
 // ---------------------------------------------------------------
 function makeCoin() {
   const coin = new THREE.Mesh(coinGeometry, coinMaterial);
@@ -290,7 +383,7 @@ function spawnCoins() {
 }
 
 // ---------------------------------------------------------------
-// 16. ACTIONS
+// 17. ACTIONS
 // ---------------------------------------------------------------
 function tryJump() {
   if (gameOverActive) return;
@@ -299,6 +392,7 @@ function tryJump() {
   isJumping = true;
   velocityY = JUMP_VELOCITY;
   flashHud('Jump 👆');
+  playAnimation(['Jump', 'Jumping', 'jump']);
 }
 
 function trySlide() {
@@ -307,8 +401,8 @@ function trySlide() {
   if (isJumping) return;
   isSliding = true;
   slideTimer = SLIDE_DURATION;
-  player.scale.y = SLIDE_HEIGHT_SCALE;
   flashHud('Slide 👇');
+  playAnimation(['Slide', 'Sliding', 'slide', 'Crouch', 'crouch']);
 }
 
 function moveLane(direction) {
@@ -323,7 +417,7 @@ function moveLane(direction) {
 }
 
 // ---------------------------------------------------------------
-// 17. SWIPE DETECTION
+// 18. SWIPE DETECTION
 // ---------------------------------------------------------------
 const SWIPE_THRESHOLD = 30;
 let touchStartX = 0;
@@ -374,14 +468,15 @@ touchLayer.addEventListener('mouseup', (e) => {
 });
 
 // ---------------------------------------------------------------
-// 18. COLLISION DETECTION
+// 19. COLLISION DETECTION
 // ---------------------------------------------------------------
 const PLAYER_HALF_WIDTH = PLAYER_WIDTH / 2;
 const PLAYER_HALF_DEPTH = PLAYER_DEPTH / 2;
 
 function checkObstacleCollisions() {
-  const playerTop = player.position.y + (PLAYER_HEIGHT * player.scale.y) / 2;
-  const playerBottom = player.position.y - (PLAYER_HEIGHT * player.scale.y) / 2;
+  // The player group sits on the ground; visual top/bottom depend on jump/slide state
+  const playerTop = playerVisualY + (PLAYER_HEIGHT * (isSliding ? SLIDE_HEIGHT_SCALE : 1)) / 2;
+  const playerBottom = playerVisualY - (PLAYER_HEIGHT * (isSliding ? SLIDE_HEIGHT_SCALE : 1)) / 2;
 
   for (let i = obstacles.length - 1; i >= 0; i--) {
     const o = obstacles[i];
@@ -421,8 +516,9 @@ function checkCoinCollisions() {
     const dx = Math.abs(c.position.x - player.position.x);
     if (dx > 0.7) continue;
 
-    const dy = Math.abs(c.position.y - player.position.y);
-    const verticalReach = (PLAYER_HEIGHT * player.scale.y) / 2 + COIN_RADIUS;
+    const playerCenterY = playerVisualY + PLAYER_HEIGHT / 2;
+    const dy = Math.abs(c.position.y - playerCenterY);
+    const verticalReach = (PLAYER_HEIGHT * (isSliding ? SLIDE_HEIGHT_SCALE : 1)) / 2 + COIN_RADIUS;
     if (dy > verticalReach) continue;
 
     scene.remove(c);
@@ -433,7 +529,7 @@ function checkCoinCollisions() {
 }
 
 // ---------------------------------------------------------------
-// 19. GAME OVER + RESTART
+// 20. GAME OVER + RESTART
 // ---------------------------------------------------------------
 function gameOver() {
   if (gameOverActive) return;
@@ -452,6 +548,7 @@ function gameOver() {
   finalScoreEl.textContent = 'Score: ' + finalScore;
   gameOverEl.classList.remove('hidden');
   flashHud('💥 GAME OVER');
+  playAnimation(['Death', 'Die', 'death']);
 }
 
 function resetGame() {
@@ -462,8 +559,8 @@ function resetGame() {
   coins.length = 0;
 
   currentLane = STARTING_LANE;
-  player.position.set(LANE_X[STARTING_LANE], PLAYER_HEIGHT / 2, 0);
-  player.scale.y = 1;
+  player.position.set(LANE_X[STARTING_LANE], 0, 0);
+  playerVisualY = 0;
 
   isJumping = false;
   velocityY = 0;
@@ -486,6 +583,8 @@ function resetGame() {
 
   spawnTimer = -1.2;
   coinSpawnTimer = -0.6;
+
+  playAnimation(['Run', 'Running', 'run', 'Walk', 'walk']);
 }
 
 restartBtn.addEventListener('click', () => {
@@ -493,7 +592,7 @@ restartBtn.addEventListener('click', () => {
 });
 
 // ---------------------------------------------------------------
-// 20. INITIALIZE
+// 21. INITIALIZE
 // ---------------------------------------------------------------
 obstacles = [];
 coins = [];
@@ -501,7 +600,7 @@ coinSpin = 0;
 resetGame();
 
 // ---------------------------------------------------------------
-// 21. GAME LOOP
+// 22. GAME LOOP
 // ---------------------------------------------------------------
 const clock = new THREE.Clock();
 const SCORE_PER_SECOND = 10;
@@ -511,7 +610,10 @@ function animate() {
 
   const delta = Math.min(clock.getDelta(), 0.1);
 
-  // ---- Road scroll (uses current worldSpeed) ----
+  // Update animation mixer every frame
+  if (mixer) mixer.update(delta);
+
+  // Road scroll
   road.position.z += worldSpeed * delta;
   if (road.position.z > ROAD_LENGTH / 2 + 10) {
     road.position.z -= ROAD_LENGTH;
@@ -525,65 +627,65 @@ function animate() {
   });
 
   if (!gameOverActive) {
-    // ---- Difficulty curve ----
+    // Difficulty curve
     runTime += delta;
     worldSpeed = Math.min(
       START_WORLD_SPEED + runTime * SPEED_INCREASE_PER_SECOND,
       MAX_WORLD_SPEED
     );
-    speedLevel = 1 + Math.floor(runTime / 5); // bumps every 5 seconds
+    speedLevel = 1 + Math.floor(runTime / 5);
 
-    // ---- Lane slide ----
+    // Lane slide
     const targetX = LANE_X[currentLane];
     player.position.x += (targetX - player.position.x) * LANE_SLIDE_SPEED * delta;
     if (Math.abs(targetX - player.position.x) < 0.001) {
       player.position.x = targetX;
     }
 
-    // ---- Jump ----
+    // Jump physics
     if (isJumping) {
       velocityY += GRAVITY * delta;
-      player.position.y += velocityY * delta;
-      if (player.position.y <= GROUND_Y) {
-        player.position.y = GROUND_Y;
+      playerVisualY += velocityY * delta;
+      if (playerVisualY <= GROUND_Y) {
+        playerVisualY = GROUND_Y;
         velocityY = 0;
         isJumping = false;
+        // Return to running
+        playAnimation(['Run', 'Running', 'run', 'Walk', 'walk']);
       }
     }
 
-    // ---- Slide ----
+    // Slide timer
     if (isSliding) {
       slideTimer -= delta;
       if (slideTimer <= 0) {
         isSliding = false;
-        player.scale.y = 1;
+        playAnimation(['Run', 'Running', 'run', 'Walk', 'walk']);
       }
     }
 
-    const halfHeight = (PLAYER_HEIGHT * player.scale.y) / 2;
-    if (!isJumping) {
-      player.position.y = halfHeight;
-    }
+    // Apply visual Y to the whole player group (model + fallback box)
+    player.position.y = playerVisualY;
 
-    // ---- Score ----
+    // Score
     score += SCORE_PER_SECOND * delta;
     scoreEl.textContent = 'Score: ' + Math.floor(score);
 
-    // ---- Spawn obstacles ----
+    // Spawn obstacles
     spawnTimer += delta;
     if (spawnTimer >= SPAWN_INTERVAL) {
       spawnTimer = 0;
       spawnObstacleRow();
     }
 
-    // ---- Spawn coins ----
+    // Spawn coins
     coinSpawnTimer += delta;
     if (coinSpawnTimer >= SPAWN_INTERVAL) {
       coinSpawnTimer = 0;
       spawnCoins();
     }
 
-    // ---- Move obstacles ----
+    // Move obstacles
     for (let i = obstacles.length - 1; i >= 0; i--) {
       const o = obstacles[i];
       o.position.z += worldSpeed * delta;
@@ -593,7 +695,7 @@ function animate() {
       }
     }
 
-    // ---- Move & spin coins ----
+    // Move + spin coins
     coinSpin += COIN_SPIN_SPEED * delta;
     for (let i = coins.length - 1; i >= 0; i--) {
       const c = coins[i];
@@ -607,18 +709,16 @@ function animate() {
       }
     }
 
-    // ---- Collisions ----
+    // Collisions
     checkObstacleCollisions();
     checkCoinCollisions();
   }
 
-  // ---- Debug ----
+  // Debug
   debug.textContent =
     'L' + speedLevel +
     ' | spd: ' + worldSpeed.toFixed(1) +
-    ' | t: ' + runTime.toFixed(0) + 's' +
-    ' | obs: ' + obstacles.length +
-    ' | coins: ' + coins.length +
+    ' | ' + (characterModel ? 'model✓' : 'box') +
     ' | ' + (gameOverActive ? 'GAME OVER' : 'running');
 
   renderer.render(scene, camera);
@@ -627,7 +727,7 @@ function animate() {
 animate();
 
 // ---------------------------------------------------------------
-// 22. RESIZE
+// 23. RESIZE
 // ---------------------------------------------------------------
 window.addEventListener('resize', () => {
   camera.aspect = window.innerWidth / window.innerHeight;
