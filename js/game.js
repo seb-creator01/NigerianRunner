@@ -217,7 +217,7 @@ const CHARACTER_URL =
 
 // Model tuning — tweak these if the character looks wrong
 const CHARACTER_SCALE = 0.3;    // smaller = smaller character
-const CHARACTER_ROTATION_Y = 0; // 0 = face away from camera
+const CHARACTER_ROTATION_Y = Math.PI; // 0 = face away from camera
 
 const loader = new GLTFLoader();
 
