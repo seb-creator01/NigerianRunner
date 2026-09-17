@@ -207,13 +207,11 @@ function setBestScore(v) {
 // ---------------------------------------------------------------
 // 14. CHARACTER LOADING
 // ---------------------------------------------------------------
-// ⬅️ CHANGED — now using the human Soldier character
 const CHARACTER_URL =
   'https://threejs.org/examples/models/gltf/Soldier.glb';
 
-// Model tuning — Soldier's native size is roughly the right scale
-const CHARACTER_SCALE = 1.0;       // ⬅️ CHANGED
-const CHARACTER_ROTATION_Y = 0;    // ⬅️ CHANGED — will adjust after seeing it
+const CHARACTER_SCALE = 1.0;
+const CHARACTER_ROTATION_Y = 0;
 
 const loader = new GLTFLoader();
 
@@ -235,10 +233,14 @@ loader.load(
       actions[clip.name] = mixer.clipAction(clip);
     });
 
-    // ⬅️ NEW — print animation names to the debug panel so we can see them
     const animNames = Object.keys(actions);
     console.log('Loaded animations:', animNames);
+
+    // ⬅️ CHANGED — show animation names for 15 seconds so you can read them
     flashHud('Anims: ' + animNames.join(', '));
+    setTimeout(() => {
+      if (!gameOverActive) flashHud('Go! 🏃');
+    }, 15000);
 
     const runName =
       pickAnimation(['Run', 'Running', 'run', 'Walk', 'walk']) ||
