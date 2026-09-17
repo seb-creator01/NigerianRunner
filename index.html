@@ -11,13 +11,46 @@
   <div id="game-container">
     <div id="touch-layer"></div>
 
+    <!-- In-game HUD -->
     <div id="score">Score: 0</div>
+    <button id="pause-btn">⏸</button>
 
-    <div id="game-over" class="hidden">
-      <h1>GAME OVER</h1>
+    <!-- Main Menu -->
+    <div id="main-menu" class="overlay">
+      <h1 class="title">NIGERIAN<br>RUNNER</h1>
+      <p id="menu-best" class="menu-best">Best Score: 0</p>
+      <button id="play-btn" class="big-btn">▶ PLAY</button>
+      <button id="settings-btn" class="small-btn">⚙ SETTINGS</button>
+    </div>
+
+    <!-- Settings -->
+    <div id="settings-menu" class="overlay hidden">
+      <h1>SETTINGS</h1>
+      <div class="setting-row">
+        <span>Sound Effects</span>
+        <button id="toggle-sfx" class="toggle-btn">ON</button>
+      </div>
+      <div class="setting-row">
+        <span>Music</span>
+        <button id="toggle-music" class="toggle-btn">ON</button>
+      </div>
+      <button id="settings-back" class="small-btn">Back</button>
+    </div>
+
+    <!-- Pause -->
+    <div id="pause-menu" class="overlay hidden">
+      <h1>PAUSED</h1>
+      <button id="resume-btn" class="big-btn">▶ RESUME</button>
+      <button id="pause-quit-btn" class="small-btn">QUIT to Menu</button>
+    </div>
+
+    <!-- Game Over -->
+    <div id="game-over" class="overlay hidden">
+      <h1 class="game-over-title">GAME OVER</h1>
       <p id="final-score">Score: 0</p>
       <p id="best-score">Best: 0</p>
-      <button id="restart-btn">Play Again</button>
+      <button id="restart-btn" class="big-btn">▶ PLAY AGAIN</button>
+      <button id="menu-btn" class="small-btn">Main Menu</button>
     </div>
   </div>
 
