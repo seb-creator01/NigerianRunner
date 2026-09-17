@@ -10,6 +10,17 @@
 <body>
   <div id="game-container">
     <div id="touch-layer"></div>
+
+    <!-- Score display -->
+    <div id="score">Score: 0</div>
+
+    <!-- Game Over overlay (hidden by default) -->
+    <div id="game-over" class="hidden">
+      <h1>GAME OVER</h1>
+      <p id="final-score">Score: 0</p>
+      <p id="best-score">Best: 0</p>
+      <button id="restart-btn">Play Again</button>
+    </div>
   </div>
 
   <script type="importmap">
