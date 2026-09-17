@@ -18,11 +18,11 @@ container.appendChild(renderer.domElement);
 renderer.shadowMap.enabled = false;
 
 // ---------------------------------------------------------------
-// 2. SCENE + FOG
+// 2. SCENE + FOG — warm Nigerian afternoon
 // ---------------------------------------------------------------
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x87ceeb);
-scene.fog = new THREE.Fog(0x87ceeb, 35, 70);
+scene.background = new THREE.Color(0xf5c98a);   // ⬅️ warm sandy sky
+scene.fog = new THREE.Fog(0xf5c98a, 35, 70);    // ⬅️ matches sky
 
 // ---------------------------------------------------------------
 // 3. CAMERA
@@ -37,10 +37,10 @@ camera.position.set(0, 5, 10);
 camera.lookAt(0, 1.5, -5);
 
 // ---------------------------------------------------------------
-// 4. LIGHTING
+// 4. LIGHTING — warm sun
 // ---------------------------------------------------------------
-scene.add(new THREE.AmbientLight(0xffffff, 0.9));
-const sunLight = new THREE.DirectionalLight(0xffffff, 1.0);
+scene.add(new THREE.AmbientLight(0xffe8c0, 0.9));       // ⬅️ warm ambient
+const sunLight = new THREE.DirectionalLight(0xfff1d0, 1.1); // ⬅️ warm sun
 sunLight.position.set(5, 10, 5);
 scene.add(sunLight);
 
@@ -57,7 +57,7 @@ const ROAD_LENGTH = 200;
 const ROAD_WIDTH = 7;
 
 const roadGeometry = new THREE.BoxGeometry(ROAD_WIDTH, 0.2, ROAD_LENGTH);
-const roadMaterial = new THREE.MeshStandardMaterial({ color: 0x444444 });
+const roadMaterial = new THREE.MeshStandardMaterial({ color: 0x4a4a4a });
 const road = new THREE.Mesh(roadGeometry, roadMaterial);
 road.position.set(0, 0, -ROAD_LENGTH / 2 + 10);
 scene.add(road);
@@ -77,6 +77,183 @@ const STRIPE_COUNT = 60;
     stripe.position.set(xPos, 0.11, 5 - i * STRIPE_SPACING);
     stripeGroup.add(stripe);
   }
+});
+
+// ---------------------------------------------------------------
+// 6b. ENVIRONMENT — Nigerian urban roadside
+// ---------------------------------------------------------------
+// Everything here scrolls with the world, wrapping when it passes the camera.
+const environmentGroup = new THREE.Group();
+scene.add(environmentGroup);
+
+const ENV_LENGTH = 200;   // total length of the environment cycle
+const ENV_START_Z = 10;   // where the cycle starts (near camera)
+const ENV_END_Z = ENV_START_Z - ENV_LENGTH;
+
+// Sidewalk strips (thin pale concrete bands along both sides)
+const sidewalkGeometry = new THREE.BoxGeometry(1.5, 0.15, ROAD_LENGTH);
+const sidewalkMaterial = new THREE.MeshStandardMaterial({ color: 0xd8c9a8 });
+[-1, 1].forEach((side) => {
+  const sidewalk = new THREE.Mesh(sidewalkGeometry, sidewalkMaterial);
+  sidewalk.position.set(side * (ROAD_WIDTH / 2 + 0.75), 0.075, -ROAD_LENGTH / 2 + 10);
+  scene.add(sidewalk);
+});
+
+// ---- Building colors (Nigerian urban palette) ----
+const BUILDING_COLORS = [
+  0xc17a4a, // terracotta
+  0xa8603a, // burnt orange
+  0xd9a066, // sandy ochre
+  0x8c5a3c, // cocoa brown
+  0xe0c088, // sun-bleached yellow
+  0x9c6a4c, // muddy brown
+];
+
+// A helper that builds a simple blocky "building"
+function makeBuilding(width, height, depth, x, z, side) {
+  const color =
+    BUILDING_COLORS[Math.floor(Math.random() * BUILDING_COLORS.length)];
+
+  const geo = new THREE.BoxGeometry(width, height, depth);
+  const mat = new THREE.MeshStandardMaterial({ color });
+  const building = new THREE.Mesh(geo, mat);
+  building.position.set(x, height / 2, z);
+
+  // Add a darker "roof" cap on top
+  const roofGeo = new THREE.BoxGeometry(width + 0.15, 0.2, depth + 0.15);
+  const roofMat = new THREE.MeshStandardMaterial({ color: 0x3a2a1a });
+  const roof = new THREE.Mesh(roofGeo, roofMat);
+  roof.position.y = height / 2 + 0.1;
+  building.add(roof);
+
+  // Add a few "windows" — small dark boxes on the front face
+  const windowCount = Math.max(1, Math.floor(height / 2));
+  for (let i = 0; i < windowCount; i++) {
+    const winGeo = new THREE.BoxGeometry(0.35, 0.5, 0.05);
+    const winMat = new THREE.MeshStandardMaterial({
+      color: 0x202840,
+      emissive: 0x101520,
+    });
+    const win = new THREE.Mesh(winGeo, winMat);
+    // Face toward the road: if side is -1 (left side), face +x; else face -x
+    const faceX = (width / 2 + 0.03) * (side === -1 ? 1 : -1);
+    win.position.set(faceX, -height / 2 + 1.2 + i * 1.6, 0);
+    win.rotation.y = side === -1 ? 0 : Math.PI;
+    building.add(win);
+  }
+
+  building.userData.isEnvironment = true;
+  return building;
+}
+
+// Generate buildings along both sides
+const BUILDING_INTERVAL = 8;   // spacing between buildings along Z
+const ROAD_EDGE = ROAD_WIDTH / 2 + 2.5; // sidewalk outer edge
+
+for (let side of [-1, 1]) {
+  let z = ENV_START_Z - 3;
+  while (z > ENV_END_Z) {
+    // Randomize size a bit for variety
+    const w = 3 + Math.random() * 2.5;
+    const h = 3 + Math.random() * 4;
+    const d = 4 + Math.random() * 3;
+    const x = side * (ROAD_EDGE + d / 2 + Math.random() * 2);
+
+    const building = makeBuilding(w, h, d, x, z, side);
+    environmentGroup.add(building);
+
+    // Occasionally add a small kiosk between buildings
+    if (Math.random() < 0.4) {
+      const kioskW = 1.2 + Math.random() * 0.6;
+      const kioskH = 1.2 + Math.random() * 0.6;
+      const kioskD = 1.2 + Math.random() * 0.6;
+      const kioskX = side * (ROAD_EDGE + kioskD / 2);
+      const kiosk = makeBuilding(kioskW, kioskH, kioskD, kioskX, z + 4, side);
+      environmentGroup.add(kiosk);
+    }
+
+    z -= BUILDING_INTERVAL;
+  }
+}
+
+// ---- Palm-ish trees (simple cylinders + sphere tufts) ----
+function makePalm(x, z) {
+  const group = new THREE.Group();
+
+  // Trunk
+  const trunkGeo = new THREE.CylinderGeometry(0.1, 0.15, 2.5, 6);
+  const trunkMat = new THREE.MeshStandardMaterial({ color: 0x6b4423 });
+  const trunk = new THREE.Mesh(trunkGeo, trunkMat);
+  trunk.position.y = 1.25;
+  group.add(trunk);
+
+  // Tuft — a few flattened spheres
+  const tuftMat = new THREE.MeshStandardMaterial({ color: 0x2f6b3a });
+  for (let i = 0; i < 5; i++) {
+    const tuftGeo = new THREE.SphereGeometry(0.5, 6, 4);
+    const tuft = new THREE.Mesh(tuftGeo, tuftMat);
+    const angle = (i / 5) * Math.PI * 2;
+    tuft.position.set(Math.cos(angle) * 0.3, 2.6, Math.sin(angle) * 0.3);
+    tuft.scale.set(1, 0.4, 1);
+    group.add(tuft);
+  }
+
+  group.position.set(x, 0, z);
+  group.userData.isEnvironment = true;
+  return group;
+}
+
+// Sprinkle some palms along both sides
+for (let i = 0; i < 12; i++) {
+  const side = Math.random() < 0.5 ? -1 : 1;
+  const z = ENV_START_Z - Math.random() * ENV_LENGTH;
+  const x = side * (ROAD_EDGE + 1 + Math.random() * 2);
+  environmentGroup.add(makePalm(x, z));
+}
+
+// ---- Lamp posts along the road edge ----
+function makeLampPost(x, z) {
+  const group = new THREE.Group();
+
+  const poleGeo = new THREE.CylinderGeometry(0.06, 0.08, 3.5, 6);
+  const poleMat = new THREE.MeshStandardMaterial({ color: 0x2a2a2a });
+  const pole = new THREE.Mesh(poleGeo, poleMat);
+  pole.position.y = 1.75;
+  group.add(pole);
+
+  const armGeo = new THREE.BoxGeometry(0.6, 0.08, 0.08);
+  const armMat = new THREE.MeshStandardMaterial({ color: 0x2a2a2a });
+  const arm = new THREE.Mesh(armGeo, armMat);
+  arm.position.set(x > 0 ? -0.3 : 0.3, 3.4, 0);
+  group.add(arm);
+
+  const bulbGeo = new THREE.SphereGeometry(0.15, 8, 6);
+  const bulbMat = new THREE.MeshStandardMaterial({
+    color: 0xfff0c0,
+    emissive: 0xffd080,
+    emissiveIntensity: 0.6,
+  });
+  const bulb = new THREE.Mesh(bulbGeo, bulbMat);
+  bulb.position.set(x > 0 ? -0.6 : 0.6, 3.35, 0);
+  group.add(bulb);
+
+  group.position.set(x, 0, z);
+  group.userData.isEnvironment = true;
+  return group;
+}
+
+// Lamp posts at regular intervals
+for (let side of [-1, 1]) {
+  for (let i = 0; i < 8; i++) {
+    const z = ENV_START_Z - i * (ENV_LENGTH / 8);
+    const x = side * (ROAD_EDGE - 0.3);
+    environmentGroup.add(makeLampPost(x, z));
+  }
+}
+
+// Store the initial Z of every environment object so we can wrap them
+environmentGroup.children.forEach((obj) => {
+  obj.userData.initialZ = obj.position.z;
 });
 
 // ---------------------------------------------------------------
@@ -116,14 +293,14 @@ const actions = {};
 let currentAction = null;
 
 // ---------------------------------------------------------------
-// 8. TUNING — snappier feel
+// 8. TUNING
 // ---------------------------------------------------------------
 const GROUND_Y = 0;
-const GRAVITY = -32;               // ⬅️ snappier gravity
-const JUMP_VELOCITY = 16;          // ⬅️ slightly stronger initial pop
-const SLIDE_DURATION = 0.7;        // ⬅️ slightly shorter slide
+const GRAVITY = -32;
+const JUMP_VELOCITY = 16;
+const SLIDE_DURATION = 0.7;
 const SLIDE_HEIGHT_SCALE = 0.5;
-const LANE_SLIDE_SPEED = 14;       // ⬅️ snappier lane changes
+const LANE_SLIDE_SPEED = 14;
 
 const START_WORLD_SPEED = 12;
 const MAX_WORLD_SPEED = 24;
@@ -392,9 +569,9 @@ function moveLane(direction) {
 }
 
 // ---------------------------------------------------------------
-// 18. SWIPE DETECTION — more sensitive
+// 18. SWIPE DETECTION
 // ---------------------------------------------------------------
-const SWIPE_THRESHOLD = 20; // ⬅️ was 30, now snappier
+const SWIPE_THRESHOLD = 20;
 let touchStartX = 0;
 let touchStartY = 0;
 
@@ -556,6 +733,11 @@ function resetGame() {
 
   road.position.z = -ROAD_LENGTH / 2 + 10;
 
+  // Reset environment positions
+  environmentGroup.children.forEach((obj) => {
+    obj.position.z = obj.userData.initialZ;
+  });
+
   scoreEl.textContent = 'Score: 0';
   gameOverEl.classList.add('hidden');
   flashHud('Go! 🏃');
@@ -589,15 +771,25 @@ function animate() {
 
   if (mixer) mixer.update(delta);
 
+  // Road scroll
   road.position.z += worldSpeed * delta;
   if (road.position.z > ROAD_LENGTH / 2 + 10) {
     road.position.z -= ROAD_LENGTH;
   }
 
+  // Stripes
   stripeGroup.children.forEach((stripe) => {
     stripe.position.z += worldSpeed * delta;
     if (stripe.position.z > 6) {
       stripe.position.z -= STRIPE_COUNT * STRIPE_SPACING;
+    }
+  });
+
+  // Environment scroll (all buildings, palms, lamps)
+  environmentGroup.children.forEach((obj) => {
+    obj.position.z += worldSpeed * delta;
+    if (obj.position.z > ENV_START_Z) {
+      obj.position.z -= ENV_LENGTH;
     }
   });
 
