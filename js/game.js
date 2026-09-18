@@ -90,15 +90,15 @@ const LANE_X = [-2, 0, 2];
 const STARTING_LANE = 1;
 
 // ---------------------------------------------------------------
-// 6. ROAD
+// 6. ROAD — static and long
 // ---------------------------------------------------------------
-const ROAD_LENGTH = 200;
+const ROAD_LENGTH = 500;
 const ROAD_WIDTH = 7;
 
 const roadGeometry = new THREE.BoxGeometry(ROAD_WIDTH, 0.2, ROAD_LENGTH);
 const roadMaterial = new THREE.MeshStandardMaterial({ color: 0x4a4a4a });
 const road = new THREE.Mesh(roadGeometry, roadMaterial);
-road.position.set(0, 0, -ROAD_LENGTH / 2 + 10);
+road.position.set(0, 0, -ROAD_LENGTH / 2 + 20);
 scene.add(road);
 
 const stripeGroup = new THREE.Group();
@@ -263,8 +263,74 @@ const sidewalkGeometry = new THREE.BoxGeometry(1.5, 0.15, ROAD_LENGTH);
 const sidewalkMaterial = new THREE.MeshStandardMaterial({ color: 0xd8c9a8 });
 [-1, 1].forEach((side) => {
   const sidewalk = new THREE.Mesh(sidewalkGeometry, sidewalkMaterial);
-  sidewalk.position.set(side * (ROAD_WIDTH / 2 + 0.75), 0.075, -ROAD_LENGTH / 2 + 10);
+  sidewalk.position.set(side * (ROAD_WIDTH / 2 + 0.75), 0.075, -ROAD_LENGTH / 2 + 20);
   scene.add(sidewalk);
+});
+
+// ---------------------------------------------------------------
+// 6c. ROADSIDE BARRIERS
+// ---------------------------------------------------------------
+const barrierGroup = new THREE.Group();
+scene.add(barrierGroup);
+
+const barrierHeight = 0.9;
+const barrierThickness = 0.15;
+const barrierX = ROAD_WIDTH / 2 + 1.7;
+
+const barrierMat = new THREE.MeshStandardMaterial({
+  color: 0xc9c4b8,
+  roughness: 0.9,
+  metalness: 0.0,
+});
+
+const barrierCapMat = new THREE.MeshStandardMaterial({
+  color: 0x8a8578,
+  roughness: 0.8,
+});
+
+[-1, 1].forEach((side) => {
+  const bodyGeo = new THREE.BoxGeometry(
+    barrierThickness,
+    barrierHeight,
+    ROAD_LENGTH
+  );
+  const body = new THREE.Mesh(bodyGeo, barrierMat);
+  body.position.set(
+    side * barrierX,
+    barrierHeight / 2,
+    -ROAD_LENGTH / 2 + 20
+  );
+  barrierGroup.add(body);
+
+  const capGeo = new THREE.BoxGeometry(
+    barrierThickness + 0.05,
+    0.08,
+    ROAD_LENGTH
+  );
+  const cap = new THREE.Mesh(capGeo, barrierCapMat);
+  cap.position.set(
+    side * barrierX,
+    barrierHeight + 0.04,
+    -ROAD_LENGTH / 2 + 20
+  );
+  barrierGroup.add(cap);
+
+  const markerCount = Math.floor(ROAD_LENGTH / 12);
+  for (let i = 0; i < markerCount; i++) {
+    const markerGeo = new THREE.BoxGeometry(0.05, 0.12, 0.4);
+    const markerMat = new THREE.MeshStandardMaterial({
+      color: 0xffee88,
+      emissive: 0xffcc44,
+      emissiveIntensity: 1.2,
+    });
+    const marker = new THREE.Mesh(markerGeo, markerMat);
+    marker.position.set(
+      side * (barrierX - barrierThickness / 2 - 0.03),
+      barrierHeight * 0.7,
+      20 - i * 12
+    );
+    barrierGroup.add(marker);
+  }
 });
 
 const BUILDING_COLORS = [
@@ -488,7 +554,6 @@ shadowDisc.rotation.x = -Math.PI / 2;
 shadowDisc.position.y = 0.12;
 scene.add(shadowDisc);
 
-// Shield bubble around the player (hidden until shield is active)
 const shieldBubble = new THREE.Mesh(
   new THREE.SphereGeometry(1.2, 16, 12),
   new THREE.MeshBasicMaterial({
@@ -503,7 +568,6 @@ shieldBubble.position.y = 1.1;
 shieldBubble.visible = false;
 player.add(shieldBubble);
 
-// Magnet aura (a spinning golden ring, hidden until magnet is active)
 const magnetRing = new THREE.Mesh(
   new THREE.TorusGeometry(1.6, 0.06, 8, 24),
   new THREE.MeshBasicMaterial({
@@ -517,7 +581,7 @@ magnetRing.position.y = 0.6;
 magnetRing.visible = false;
 player.add(magnetRing);
 
-// ---- DUST PARTICLES ----
+// DUST PARTICLES
 const DUST_COUNT = 30;
 const dustGeometry = new THREE.BufferGeometry();
 const dustPositions = new Float32Array(DUST_COUNT * 3);
@@ -650,10 +714,9 @@ const POWERUP_LABELS = {
   double: '2× SCORE',
 };
 
-const POWERUP_SPAWN_INTERVAL = 10; // seconds between power-up crates
+const POWERUP_SPAWN_INTERVAL = 10;
 const POWERUP_SPAWN_Z = -80;
 
-// Visual appearance of the crate — colour-coded by power-up
 const POWERUP_COLORS = {
   magnet: 0xffcc00,
   shield: 0x55bbff,
@@ -677,7 +740,7 @@ let powerupSpawnTimer;
 let score;
 let obstacles;
 let coins;
-let powerups;       // active power-up crates
+let powerups;
 let coinSpin;
 
 let worldSpeed;
@@ -688,10 +751,9 @@ let playerVisualY = 0;
 
 let gameState = 'loading';
 
-// Active power-up timers (in seconds remaining; 0 or null = inactive)
 const activePowerups = {
   magnet: 0,
-  shield: 0,   // 0 = no shield; we set to 1 to indicate "active", and it doesn't tick down
+  shield: 0,
   speed: 0,
   double: 0,
 };
@@ -761,9 +823,9 @@ function updatePauseBtnVisibility() {
 }
 
 // ---------------------------------------------------------------
-// 12b. POWER-UP HUD RENDERER
+// 12b. POWER-UP HUD
 // ---------------------------------------------------------------
-const powerupHudItems = {}; // name -> DOM element
+const powerupHudItems = {};
 
 function makePowerupHudItem(name) {
   const item = document.createElement('div');
@@ -788,7 +850,6 @@ function makePowerupHudItem(name) {
 }
 
 function updatePowerupHud() {
-  // For each power-up type, show/hide the HUD item and update the bar
   for (const name of POWERUP_TYPES) {
     const remaining = activePowerups[name];
     const isActive = remaining > 0;
@@ -803,7 +864,6 @@ function updatePowerupHud() {
       if (!ref.item.parentNode) {
         powerupHud.appendChild(ref.item);
       }
-      // Shield never ticks down — show full bar
       const max = POWERUP_DURATIONS[name];
       const pct = max === Infinity ? 100 : (remaining / max) * 100;
       ref.fill.style.width = pct + '%';
@@ -813,7 +873,6 @@ function updatePowerupHud() {
 
 function activatePowerup(name) {
   if (name === 'shield') {
-    // Shield doesn't tick down. We set to a large number so it stays active.
     activePowerups.shield = 1;
     shieldBubble.visible = true;
   } else {
@@ -1109,7 +1168,6 @@ function makeObstacleMesh(type) {
 }
 
 function spawnObstacleRow() {
-  // Don't spawn obstacles during speed boost — it's a "free run" moment
   if (activePowerups.speed > 0) return;
 
   const lanes = [0, 1, 2];
@@ -1196,7 +1254,6 @@ function makePowerupCrate(type) {
   const cube = new THREE.Mesh(powerupGeometry, mat);
   group.add(cube);
 
-  // Outline frame
   const edges = new THREE.EdgesGeometry(powerupGeometry);
   const line = new THREE.LineSegments(
     edges,
@@ -1320,7 +1377,6 @@ const PLAYER_HALF_WIDTH = PLAYER_WIDTH / 2;
 const PLAYER_HALF_DEPTH = PLAYER_DEPTH / 2;
 
 function checkObstacleCollisions() {
-  // Speed boost makes the player invincible
   if (activePowerups.speed > 0) return;
 
   const heightScale = isSliding ? SLIDE_HEIGHT_SCALE : 1;
@@ -1349,10 +1405,8 @@ function checkObstacleCollisions() {
     }
 
     if (hit) {
-      // If shield is active, absorb the hit
       if (activePowerups.shield > 0) {
         deactivatePowerup('shield');
-        // Remove the obstacle so we visibly pass through
         scene.remove(o);
         obstacles.splice(i, 1);
         flashHud('🛡️ Shield broken!');
@@ -1401,9 +1455,6 @@ function checkPowerupPickups() {
     const dx = Math.abs(p.position.x - player.position.x);
     if (dx > 0.9) continue;
 
-    // No vertical check — the crate floats and the player picks it up regardless
-    // of jump/slide state, as long as they're in the same lane.
-
     const type = p.userData.type;
     activatePowerup(type);
 
@@ -1449,7 +1500,6 @@ function startRun() {
   powerups.forEach((p) => scene.remove(p));
   powerups.length = 0;
 
-  // Reset active power-ups
   for (const name of POWERUP_TYPES) deactivatePowerup(name);
   updatePowerupHud();
 
@@ -1466,7 +1516,7 @@ function startRun() {
   slideTimer = 0;
   spawnTimer = 0;
   coinSpawnTimer = 0;
-  powerupSpawnTimer = -4; // first power-up appears after ~4s
+  powerupSpawnTimer = -4;
   score = 0;
 
   for (let i = 0; i < DUST_COUNT; i++) dustLife[i] = 0;
@@ -1475,8 +1525,6 @@ function startRun() {
   worldSpeed = START_WORLD_SPEED;
   runTime = 0;
   speedLevel = 1;
-
-  road.position.z = -ROAD_LENGTH / 2 + 10;
 
   environmentGroup.children.forEach((obj) => {
     obj.position.z = obj.userData.initialZ;
@@ -1517,7 +1565,6 @@ function goToMainMenu() {
   runTime = 0;
   speedLevel = 1;
 
-  road.position.z = -ROAD_LENGTH / 2 + 10;
   environmentGroup.children.forEach((obj) => {
     obj.position.z = obj.userData.initialZ;
   });
@@ -1618,7 +1665,6 @@ coins = [];
 powerups = [];
 coinSpin = 0;
 
-// Create HUD items once; they'll be attached/detached as power-ups activate
 for (const name of POWERUP_TYPES) {
   powerupHudItems[name] = makePowerupHudItem(name);
 }
@@ -1729,7 +1775,6 @@ function playSound(name) {
       break;
 
     case 'powerup':
-      // Bright rising triad
       playBeep(660, 0.1, 'triangle', 0.22);
       setTimeout(() => playBeep(880, 0.1, 'triangle', 0.22), 80);
       setTimeout(() => playBeep(1320, 0.18, 'triangle', 0.22), 160);
@@ -1756,7 +1801,6 @@ function animate() {
   if (mixer) mixer.update(delta);
 
   if (gameState === 'playing') {
-    // ---- Power-up timers ----
     let activeDirty = false;
     for (const name of ['magnet', 'speed', 'double']) {
       if (activePowerups[name] > 0) {
@@ -1770,25 +1814,19 @@ function animate() {
     }
     if (activeDirty) updatePowerupHud();
 
-    // Pulse the shield bubble
     if (activePowerups.shield > 0) {
       shieldPulseTimer += delta;
       shieldBubble.material.opacity = 0.18 + Math.sin(shieldPulseTimer * 5) * 0.08;
     }
 
-    // Spin the magnet ring
     if (activePowerups.magnet > 0) {
       magnetRing.rotation.z += delta * 4;
     }
 
-    // ---- World scroll (speed boost doubles the speed) ----
     const speedMultiplier = activePowerups.speed > 0 ? 2 : 1;
     const effectiveSpeed = worldSpeed * speedMultiplier;
 
-    road.position.z += effectiveSpeed * delta;
-    if (road.position.z > ROAD_LENGTH / 2 + 10) {
-      road.position.z -= ROAD_LENGTH;
-    }
+    // Road is static — no scroll.
 
     stripeGroup.children.forEach((stripe) => {
       stripe.position.z += effectiveSpeed * delta;
@@ -1811,14 +1849,12 @@ function animate() {
     );
     speedLevel = 1 + Math.floor(runTime / 5);
 
-    // Lane slide
     const targetX = LANE_X[currentLane];
     player.position.x += (targetX - player.position.x) * LANE_SLIDE_SPEED * delta;
     if (Math.abs(targetX - player.position.x) < 0.001) {
       player.position.x = targetX;
     }
 
-    // Jump
     if (isJumping) {
       velocityY += GRAVITY * delta;
       playerVisualY += velocityY * delta;
@@ -1829,7 +1865,6 @@ function animate() {
       }
     }
 
-    // Slide
     if (isSliding) {
       slideTimer -= delta;
       if (characterModel) {
@@ -1849,7 +1884,6 @@ function animate() {
 
     player.position.y = playerVisualY;
 
-    // Shadow
     shadowDisc.position.x = player.position.x;
     shadowDisc.position.z = player.position.z;
     const jumpHeight = playerVisualY - GROUND_Y;
@@ -1858,7 +1892,6 @@ function animate() {
     const sizeFactor = Math.max(0.4, 1 - jumpHeight * 0.08);
     shadowDisc.scale.set(sizeFactor, sizeFactor, 1);
 
-    // Dust
     dustSpawnTimer += delta;
     if (!isJumping && dustSpawnTimer > 0.10) {
       dustSpawnTimer = 0;
@@ -1881,35 +1914,30 @@ function animate() {
       }
     }
 
-    // ---- Score (with 2× multiplier + speed boost bonus) ----
     let scoreGain = SCORE_PER_SECOND;
     if (activePowerups.double > 0) scoreGain *= 2;
     if (activePowerups.speed > 0) scoreGain += 50;
     score += scoreGain * delta;
     scoreEl.textContent = 'Score: ' + Math.floor(score);
 
-    // ---- Spawn obstacles ----
     spawnTimer += delta;
     if (spawnTimer >= SPAWN_INTERVAL) {
       spawnTimer = 0;
       spawnObstacleRow();
     }
 
-    // ---- Spawn coins ----
     coinSpawnTimer += delta;
     if (coinSpawnTimer >= SPAWN_INTERVAL) {
       coinSpawnTimer = 0;
       spawnCoins();
     }
 
-    // ---- Spawn power-ups ----
     powerupSpawnTimer += delta;
     if (powerupSpawnTimer >= POWERUP_SPAWN_INTERVAL) {
       powerupSpawnTimer = 0;
       spawnPowerup();
     }
 
-    // ---- Move obstacles ----
     for (let i = obstacles.length - 1; i >= 0; i--) {
       const o = obstacles[i];
       o.position.z += effectiveSpeed * delta;
@@ -1919,14 +1947,12 @@ function animate() {
       }
     }
 
-    // ---- Move coins + magnet pull ----
     coinSpin += COIN_SPIN_SPEED * delta;
     for (let i = coins.length - 1; i >= 0; i--) {
       const c = coins[i];
       c.position.z += effectiveSpeed * delta;
 
       if (activePowerups.magnet > 0) {
-        // Pull coin toward the player
         const dx = player.position.x - c.position.x;
         const dz = player.position.z - c.position.z;
         const dy = (playerVisualY + 1) - c.position.y;
@@ -1948,7 +1974,6 @@ function animate() {
       }
     }
 
-    // ---- Move power-ups (spin + bob) ----
     for (let i = powerups.length - 1; i >= 0; i--) {
       const p = powerups[i];
       p.position.z += effectiveSpeed * delta;
@@ -1963,7 +1988,6 @@ function animate() {
       }
     }
 
-    // ---- Collisions ----
     checkObstacleCollisions();
     checkCoinCollisions();
     checkPowerupPickups();
