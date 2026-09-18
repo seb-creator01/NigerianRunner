@@ -488,7 +488,36 @@ shadowDisc.rotation.x = -Math.PI / 2;
 shadowDisc.position.y = 0.12;
 scene.add(shadowDisc);
 
-// ---- DUST PARTICLES with soft round texture ----
+// Shield bubble around the player (hidden until shield is active)
+const shieldBubble = new THREE.Mesh(
+  new THREE.SphereGeometry(1.2, 16, 12),
+  new THREE.MeshBasicMaterial({
+    color: 0x55bbff,
+    transparent: true,
+    opacity: 0.25,
+    depthWrite: false,
+    wireframe: false,
+  })
+);
+shieldBubble.position.y = 1.1;
+shieldBubble.visible = false;
+player.add(shieldBubble);
+
+// Magnet aura (a spinning golden ring, hidden until magnet is active)
+const magnetRing = new THREE.Mesh(
+  new THREE.TorusGeometry(1.6, 0.06, 8, 24),
+  new THREE.MeshBasicMaterial({
+    color: 0xffcc00,
+    transparent: true,
+    opacity: 0.7,
+  })
+);
+magnetRing.rotation.x = Math.PI / 2;
+magnetRing.position.y = 0.6;
+magnetRing.visible = false;
+player.add(magnetRing);
+
+// ---- DUST PARTICLES ----
 const DUST_COUNT = 30;
 const dustGeometry = new THREE.BufferGeometry();
 const dustPositions = new Float32Array(DUST_COUNT * 3);
@@ -596,6 +625,45 @@ const coinMaterial = new THREE.MeshStandardMaterial({
 });
 
 // ---------------------------------------------------------------
+// 10b. POWER-UP CONSTANTS
+// ---------------------------------------------------------------
+const POWERUP_TYPES = ['magnet', 'shield', 'speed', 'double'];
+
+const POWERUP_DURATIONS = {
+  magnet: 8,
+  shield: Infinity,
+  speed: 3,
+  double: 10,
+};
+
+const POWERUP_ICONS = {
+  magnet: '🧲',
+  shield: '🛡️',
+  speed: '⚡',
+  double: '💰',
+};
+
+const POWERUP_LABELS = {
+  magnet: 'MAGNET',
+  shield: 'SHIELD',
+  speed: 'SPEED',
+  double: '2× SCORE',
+};
+
+const POWERUP_SPAWN_INTERVAL = 10; // seconds between power-up crates
+const POWERUP_SPAWN_Z = -80;
+
+// Visual appearance of the crate — colour-coded by power-up
+const POWERUP_COLORS = {
+  magnet: 0xffcc00,
+  shield: 0x55bbff,
+  speed: 0xff5544,
+  double: 0x55dd88,
+};
+
+const powerupGeometry = new THREE.BoxGeometry(0.7, 0.7, 0.7);
+
+// ---------------------------------------------------------------
 // 11. GAME STATE
 // ---------------------------------------------------------------
 let currentLane;
@@ -605,9 +673,11 @@ let isSliding;
 let slideTimer;
 let spawnTimer;
 let coinSpawnTimer;
+let powerupSpawnTimer;
 let score;
 let obstacles;
 let coins;
+let powerups;       // active power-up crates
 let coinSpin;
 
 let worldSpeed;
@@ -617,6 +687,14 @@ let speedLevel;
 let playerVisualY = 0;
 
 let gameState = 'loading';
+
+// Active power-up timers (in seconds remaining; 0 or null = inactive)
+const activePowerups = {
+  magnet: 0,
+  shield: 0,   // 0 = no shield; we set to 1 to indicate "active", and it doesn't tick down
+  speed: 0,
+  double: 0,
+};
 
 // ---------------------------------------------------------------
 // 12. HUD ELEMENTS
@@ -629,6 +707,8 @@ document.body.appendChild(hud);
 const debug = document.createElement('div');
 debug.id = 'debug';
 document.body.appendChild(debug);
+
+const powerupHud = document.getElementById('powerup-hud');
 
 const scoreEl = document.getElementById('score');
 const loadingScreenEl = document.getElementById('loading-screen');
@@ -678,6 +758,76 @@ function updatePauseBtnVisibility() {
   } else {
     pauseBtn.classList.add('hidden');
   }
+}
+
+// ---------------------------------------------------------------
+// 12b. POWER-UP HUD RENDERER
+// ---------------------------------------------------------------
+const powerupHudItems = {}; // name -> DOM element
+
+function makePowerupHudItem(name) {
+  const item = document.createElement('div');
+  item.className = 'powerup-item ' + name;
+
+  const icon = document.createElement('span');
+  icon.className = 'powerup-icon';
+  icon.textContent = POWERUP_ICONS[name];
+
+  const bar = document.createElement('div');
+  bar.className = 'powerup-bar-outer';
+  const fill = document.createElement('div');
+  fill.className = 'powerup-bar-fill';
+  bar.appendChild(fill);
+
+  item.appendChild(icon);
+  item.appendChild(bar);
+
+  powerupHud.appendChild(item);
+
+  return { item, fill };
+}
+
+function updatePowerupHud() {
+  // For each power-up type, show/hide the HUD item and update the bar
+  for (const name of POWERUP_TYPES) {
+    const remaining = activePowerups[name];
+    const isActive = remaining > 0;
+    const ref = powerupHudItems[name];
+    if (!ref) continue;
+
+    if (!isActive) {
+      if (ref.item.parentNode) {
+        ref.item.parentNode.removeChild(ref.item);
+      }
+    } else {
+      if (!ref.item.parentNode) {
+        powerupHud.appendChild(ref.item);
+      }
+      // Shield never ticks down — show full bar
+      const max = POWERUP_DURATIONS[name];
+      const pct = max === Infinity ? 100 : (remaining / max) * 100;
+      ref.fill.style.width = pct + '%';
+    }
+  }
+}
+
+function activatePowerup(name) {
+  if (name === 'shield') {
+    // Shield doesn't tick down. We set to a large number so it stays active.
+    activePowerups.shield = 1;
+    shieldBubble.visible = true;
+  } else {
+    activePowerups[name] = POWERUP_DURATIONS[name];
+    if (name === 'magnet') magnetRing.visible = true;
+  }
+  playSound('powerup');
+  flashHud(POWERUP_ICONS[name] + ' ' + POWERUP_LABELS[name] + '!');
+}
+
+function deactivatePowerup(name) {
+  activePowerups[name] = 0;
+  if (name === 'shield') shieldBubble.visible = false;
+  if (name === 'magnet') magnetRing.visible = false;
 }
 
 // ---------------------------------------------------------------
@@ -764,7 +914,6 @@ function showLoadError(msg) {
   loadingBarFillEl.style.width = '100%';
 }
 
-// ⬇️ UPDATED — fades the loading screen out, then reveals the menu
 function finishLoading() {
   characterReady = true;
   playBtn.disabled = false;
@@ -960,6 +1109,9 @@ function makeObstacleMesh(type) {
 }
 
 function spawnObstacleRow() {
+  // Don't spawn obstacles during speed boost — it's a "free run" moment
+  if (activePowerups.speed > 0) return;
+
   const lanes = [0, 1, 2];
   const blockedCount = Math.random() < 0.6 ? 1 : 2;
 
@@ -1026,6 +1178,50 @@ function spawnCoins() {
 
     spawnCoinLine(lane, SPAWN_Z - 5, count, yLevel);
   });
+}
+
+// ---------------------------------------------------------------
+// 16b. POWER-UP SPAWNING
+// ---------------------------------------------------------------
+function makePowerupCrate(type) {
+  const group = new THREE.Group();
+
+  const mat = new THREE.MeshStandardMaterial({
+    color: POWERUP_COLORS[type],
+    emissive: POWERUP_COLORS[type],
+    emissiveIntensity: 0.8,
+    metalness: 0.4,
+    roughness: 0.4,
+  });
+  const cube = new THREE.Mesh(powerupGeometry, mat);
+  group.add(cube);
+
+  // Outline frame
+  const edges = new THREE.EdgesGeometry(powerupGeometry);
+  const line = new THREE.LineSegments(
+    edges,
+    new THREE.LineBasicMaterial({ color: 0xffffff })
+  );
+  group.add(line);
+
+  group.userData.type = type;
+  group.userData.baseY = 1.3;
+  group.userData.spin = 0;
+
+  return group;
+}
+
+function spawnPowerup() {
+  const lane = Math.floor(Math.random() * 3);
+  const type = POWERUP_TYPES[Math.floor(Math.random() * POWERUP_TYPES.length)];
+
+  const crate = makePowerupCrate(type);
+  crate.position.x = LANE_X[lane];
+  crate.position.y = crate.userData.baseY;
+  crate.position.z = POWERUP_SPAWN_Z;
+
+  scene.add(crate);
+  powerups.push(crate);
 }
 
 // ---------------------------------------------------------------
@@ -1124,6 +1320,9 @@ const PLAYER_HALF_WIDTH = PLAYER_WIDTH / 2;
 const PLAYER_HALF_DEPTH = PLAYER_DEPTH / 2;
 
 function checkObstacleCollisions() {
+  // Speed boost makes the player invincible
+  if (activePowerups.speed > 0) return;
+
   const heightScale = isSliding ? SLIDE_HEIGHT_SCALE : 1;
   const playerTop = playerVisualY + (PLAYER_HEIGHT * heightScale) / 2;
   const playerBottom = playerVisualY - (PLAYER_HEIGHT * heightScale) / 2;
@@ -1150,6 +1349,16 @@ function checkObstacleCollisions() {
     }
 
     if (hit) {
+      // If shield is active, absorb the hit
+      if (activePowerups.shield > 0) {
+        deactivatePowerup('shield');
+        // Remove the obstacle so we visibly pass through
+        scene.remove(o);
+        obstacles.splice(i, 1);
+        flashHud('🛡️ Shield broken!');
+        playSound('crash');
+        return;
+      }
       gameOver();
       return;
     }
@@ -1175,9 +1384,31 @@ function checkCoinCollisions() {
 
     scene.remove(c);
     coins.splice(i, 1);
-    score += COIN_VALUE;
-    flashHud('+' + COIN_VALUE + ' 🪙');
+    const mult = activePowerups.double > 0 ? 2 : 1;
+    score += COIN_VALUE * mult;
+    flashHud('+' + (COIN_VALUE * mult) + ' 🪙');
     playSound('coin');
+  }
+}
+
+function checkPowerupPickups() {
+  for (let i = powerups.length - 1; i >= 0; i--) {
+    const p = powerups[i];
+
+    const dz = Math.abs(p.position.z - player.position.z);
+    if (dz > 1.0) continue;
+
+    const dx = Math.abs(p.position.x - player.position.x);
+    if (dx > 0.9) continue;
+
+    // No vertical check — the crate floats and the player picks it up regardless
+    // of jump/slide state, as long as they're in the same lane.
+
+    const type = p.userData.type;
+    activatePowerup(type);
+
+    scene.remove(p);
+    powerups.splice(i, 1);
   }
 }
 
@@ -1215,6 +1446,13 @@ function startRun() {
   coins.forEach((c) => scene.remove(c));
   coins.length = 0;
 
+  powerups.forEach((p) => scene.remove(p));
+  powerups.length = 0;
+
+  // Reset active power-ups
+  for (const name of POWERUP_TYPES) deactivatePowerup(name);
+  updatePowerupHud();
+
   currentLane = STARTING_LANE;
   player.position.set(LANE_X[STARTING_LANE], 0, 0);
   playerVisualY = 0;
@@ -1228,6 +1466,7 @@ function startRun() {
   slideTimer = 0;
   spawnTimer = 0;
   coinSpawnTimer = 0;
+  powerupSpawnTimer = -4; // first power-up appears after ~4s
   score = 0;
 
   for (let i = 0; i < DUST_COUNT; i++) dustLife[i] = 0;
@@ -1259,6 +1498,11 @@ function goToMainMenu() {
   obstacles.length = 0;
   coins.forEach((c) => scene.remove(c));
   coins.length = 0;
+  powerups.forEach((p) => scene.remove(p));
+  powerups.length = 0;
+
+  for (const name of POWERUP_TYPES) deactivatePowerup(name);
+  updatePowerupHud();
 
   player.position.set(LANE_X[STARTING_LANE], 0, 0);
   playerVisualY = 0;
@@ -1371,7 +1615,15 @@ menuBtn.addEventListener('click', () => {
 // ---------------------------------------------------------------
 obstacles = [];
 coins = [];
+powerups = [];
 coinSpin = 0;
+
+// Create HUD items once; they'll be attached/detached as power-ups activate
+for (const name of POWERUP_TYPES) {
+  powerupHudItems[name] = makePowerupHudItem(name);
+}
+updatePowerupHud();
+
 loadSettings();
 updateSettingsUI();
 menuBestEl.textContent = 'Best Score: ' + getBestScore();
@@ -1475,6 +1727,13 @@ function playSound(name) {
       playBeep(120, 0.4, 'sawtooth', 0.25);
       playNoise(0.4, 200, 0.2, 80);
       break;
+
+    case 'powerup':
+      // Bright rising triad
+      playBeep(660, 0.1, 'triangle', 0.22);
+      setTimeout(() => playBeep(880, 0.1, 'triangle', 0.22), 80);
+      setTimeout(() => playBeep(1320, 0.18, 'triangle', 0.22), 160);
+      break;
   }
 }
 
@@ -1487,6 +1746,8 @@ const SCORE_PER_SECOND = 10;
 let footstepTimer = 0;
 const FOOTSTEP_INTERVAL = 0.28;
 
+let shieldPulseTimer = 0;
+
 function animate() {
   requestAnimationFrame(animate);
 
@@ -1495,20 +1756,49 @@ function animate() {
   if (mixer) mixer.update(delta);
 
   if (gameState === 'playing') {
-    road.position.z += worldSpeed * delta;
+    // ---- Power-up timers ----
+    let activeDirty = false;
+    for (const name of ['magnet', 'speed', 'double']) {
+      if (activePowerups[name] > 0) {
+        activePowerups[name] -= delta;
+        if (activePowerups[name] <= 0) {
+          activePowerups[name] = 0;
+          if (name === 'magnet') magnetRing.visible = false;
+          activeDirty = true;
+        }
+      }
+    }
+    if (activeDirty) updatePowerupHud();
+
+    // Pulse the shield bubble
+    if (activePowerups.shield > 0) {
+      shieldPulseTimer += delta;
+      shieldBubble.material.opacity = 0.18 + Math.sin(shieldPulseTimer * 5) * 0.08;
+    }
+
+    // Spin the magnet ring
+    if (activePowerups.magnet > 0) {
+      magnetRing.rotation.z += delta * 4;
+    }
+
+    // ---- World scroll (speed boost doubles the speed) ----
+    const speedMultiplier = activePowerups.speed > 0 ? 2 : 1;
+    const effectiveSpeed = worldSpeed * speedMultiplier;
+
+    road.position.z += effectiveSpeed * delta;
     if (road.position.z > ROAD_LENGTH / 2 + 10) {
       road.position.z -= ROAD_LENGTH;
     }
 
     stripeGroup.children.forEach((stripe) => {
-      stripe.position.z += worldSpeed * delta;
+      stripe.position.z += effectiveSpeed * delta;
       if (stripe.position.z > 6) {
         stripe.position.z -= STRIPE_COUNT * STRIPE_SPACING;
       }
     });
 
     environmentGroup.children.forEach((obj) => {
-      obj.position.z += worldSpeed * delta;
+      obj.position.z += effectiveSpeed * delta;
       if (obj.position.z > ENV_START_Z) {
         obj.position.z -= ENV_LENGTH;
       }
@@ -1521,12 +1811,14 @@ function animate() {
     );
     speedLevel = 1 + Math.floor(runTime / 5);
 
+    // Lane slide
     const targetX = LANE_X[currentLane];
     player.position.x += (targetX - player.position.x) * LANE_SLIDE_SPEED * delta;
     if (Math.abs(targetX - player.position.x) < 0.001) {
       player.position.x = targetX;
     }
 
+    // Jump
     if (isJumping) {
       velocityY += GRAVITY * delta;
       playerVisualY += velocityY * delta;
@@ -1537,6 +1829,7 @@ function animate() {
       }
     }
 
+    // Slide
     if (isSliding) {
       slideTimer -= delta;
       if (characterModel) {
@@ -1556,6 +1849,7 @@ function animate() {
 
     player.position.y = playerVisualY;
 
+    // Shadow
     shadowDisc.position.x = player.position.x;
     shadowDisc.position.z = player.position.z;
     const jumpHeight = playerVisualY - GROUND_Y;
@@ -1564,6 +1858,7 @@ function animate() {
     const sizeFactor = Math.max(0.4, 1 - jumpHeight * 0.08);
     shadowDisc.scale.set(sizeFactor, sizeFactor, 1);
 
+    // Dust
     dustSpawnTimer += delta;
     if (!isJumping && dustSpawnTimer > 0.10) {
       dustSpawnTimer = 0;
@@ -1586,36 +1881,66 @@ function animate() {
       }
     }
 
-    score += SCORE_PER_SECOND * delta;
+    // ---- Score (with 2× multiplier + speed boost bonus) ----
+    let scoreGain = SCORE_PER_SECOND;
+    if (activePowerups.double > 0) scoreGain *= 2;
+    if (activePowerups.speed > 0) scoreGain += 50;
+    score += scoreGain * delta;
     scoreEl.textContent = 'Score: ' + Math.floor(score);
 
+    // ---- Spawn obstacles ----
     spawnTimer += delta;
     if (spawnTimer >= SPAWN_INTERVAL) {
       spawnTimer = 0;
       spawnObstacleRow();
     }
 
+    // ---- Spawn coins ----
     coinSpawnTimer += delta;
     if (coinSpawnTimer >= SPAWN_INTERVAL) {
       coinSpawnTimer = 0;
       spawnCoins();
     }
 
+    // ---- Spawn power-ups ----
+    powerupSpawnTimer += delta;
+    if (powerupSpawnTimer >= POWERUP_SPAWN_INTERVAL) {
+      powerupSpawnTimer = 0;
+      spawnPowerup();
+    }
+
+    // ---- Move obstacles ----
     for (let i = obstacles.length - 1; i >= 0; i--) {
       const o = obstacles[i];
-      o.position.z += worldSpeed * delta;
+      o.position.z += effectiveSpeed * delta;
       if (o.position.z > DESPAWN_Z) {
         scene.remove(o);
         obstacles.splice(i, 1);
       }
     }
 
+    // ---- Move coins + magnet pull ----
     coinSpin += COIN_SPIN_SPEED * delta;
     for (let i = coins.length - 1; i >= 0; i--) {
       const c = coins[i];
-      c.position.z += worldSpeed * delta;
+      c.position.z += effectiveSpeed * delta;
+
+      if (activePowerups.magnet > 0) {
+        // Pull coin toward the player
+        const dx = player.position.x - c.position.x;
+        const dz = player.position.z - c.position.z;
+        const dy = (playerVisualY + 1) - c.position.y;
+        const dist = Math.sqrt(dx * dx + dz * dz + dy * dy);
+
+        if (dist < 5) {
+          c.position.x += (dx / dist) * 12 * delta;
+          c.position.y += (dy / dist) * 12 * delta;
+          c.position.z += (dz / dist) * 12 * delta;
+        }
+      }
+
       c.rotation.y = coinSpin;
-      c.position.y = c.userData.baseY + Math.sin(coinSpin * 2 + c.position.z) * 0.08;
+      c.position.y += Math.sin(coinSpin * 2 + c.position.z) * 0.02;
 
       if (c.position.z > DESPAWN_Z) {
         scene.remove(c);
@@ -1623,15 +1948,36 @@ function animate() {
       }
     }
 
+    // ---- Move power-ups (spin + bob) ----
+    for (let i = powerups.length - 1; i >= 0; i--) {
+      const p = powerups[i];
+      p.position.z += effectiveSpeed * delta;
+      p.userData.spin += delta * 3;
+      p.rotation.y = p.userData.spin;
+      p.rotation.x = Math.sin(p.userData.spin * 0.7) * 0.2;
+      p.position.y = p.userData.baseY + Math.sin(p.userData.spin * 2) * 0.1;
+
+      if (p.position.z > DESPAWN_Z) {
+        scene.remove(p);
+        powerups.splice(i, 1);
+      }
+    }
+
+    // ---- Collisions ----
     checkObstacleCollisions();
     checkCoinCollisions();
+    checkPowerupPickups();
   }
 
   debug.textContent =
     'state: ' + gameState +
     ' | L' + speedLevel +
     ' | spd: ' + worldSpeed.toFixed(1) +
-    ' | ' + (characterModel ? 'model✓' : 'box');
+    ' | ' + (characterModel ? 'model✓' : 'box') +
+    ' | ' + (activePowerups.shield > 0 ? '🛡️' : '') +
+    (activePowerups.magnet > 0 ? '🧲' : '') +
+    (activePowerups.speed > 0 ? '⚡' : '') +
+    (activePowerups.double > 0 ? '💰' : '');
 
   if (gfxEnabled || bloomEnabled) {
     composer.render();
