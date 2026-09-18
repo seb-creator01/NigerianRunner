@@ -1,7 +1,6 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
-// Post-processing imports
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
@@ -22,13 +21,11 @@ renderer.domElement.style.top = '0';
 renderer.domElement.style.left = '0';
 renderer.domElement.style.zIndex = '1';
 
-// Tone mapping + output color space — cinematic grading
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.15;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 
 container.appendChild(renderer.domElement);
-
 renderer.shadowMap.enabled = false;
 
 // ---------------------------------------------------------------
@@ -51,28 +48,25 @@ camera.position.set(0, 5, 10);
 camera.lookAt(0, 1.5, -5);
 
 // ---------------------------------------------------------------
-// 3b. POST-PROCESSING COMPOSER
+// 3b. POST-PROCESSING
 // ---------------------------------------------------------------
 const composer = new EffectComposer(renderer);
 const renderPass = new RenderPass(scene, camera);
 composer.addPass(renderPass);
 
-// Bloom — soft glow on bright objects (coins, lamp bulbs, sun)
 const bloomPass = new UnrealBloomPass(
   new THREE.Vector2(window.innerWidth, window.innerHeight),
-  0.55,   // strength
-  0.7,    // radius
-  0.85    // threshold (only bright pixels bloom)
+  0.55,
+  0.7,
+  0.85
 );
 composer.addPass(bloomPass);
 
-// Vignette — darkens edges
 const vignettePass = new ShaderPass(VignetteShader);
-vignettePass.uniforms['offset'].value = 1.1;
-vignettePass.uniforms['darkness'].value = 0.9;
+vignettePass.uniforms['offset'].value = 1.0;
+vignettePass.uniforms['darkness'].value = 0.5;   // ⬅️ was 0.9, softer now
 composer.addPass(vignettePass);
 
-// FXAA — smooth jagged edges
 const fxaaPass = new ShaderPass(FXAAShader);
 const pixelRatio = renderer.getPixelRatio();
 fxaaPass.material.uniforms['resolution'].value.x =
@@ -125,7 +119,7 @@ const STRIPE_COUNT = 60;
 });
 
 // ---------------------------------------------------------------
-// 6b. ENVIRONMENT — Nigerian street scene
+// 6b. ENVIRONMENT
 // ---------------------------------------------------------------
 const environmentGroup = new THREE.Group();
 scene.add(environmentGroup);
@@ -486,7 +480,7 @@ const shadowDisc = new THREE.Mesh(
   new THREE.MeshBasicMaterial({
     color: 0x000000,
     transparent: true,
-    opacity: 0.35,
+    opacity: 0.4,
     depthWrite: false,
   })
 );
@@ -494,11 +488,11 @@ shadowDisc.rotation.x = -Math.PI / 2;
 shadowDisc.position.y = 0.12;
 scene.add(shadowDisc);
 
-// ---- DUST PARTICLES behind the player ----
+// ---- DUST PARTICLES with soft round texture ----
 const DUST_COUNT = 30;
 const dustGeometry = new THREE.BufferGeometry();
 const dustPositions = new Float32Array(DUST_COUNT * 3);
-const dustLife = new Float32Array(DUST_COUNT); // 0..1
+const dustLife = new Float32Array(DUST_COUNT);
 for (let i = 0; i < DUST_COUNT; i++) {
   dustPositions[i * 3 + 0] = 0;
   dustPositions[i * 3 + 1] = 0;
@@ -507,13 +501,27 @@ for (let i = 0; i < DUST_COUNT; i++) {
 }
 dustGeometry.setAttribute('position', new THREE.BufferAttribute(dustPositions, 3));
 
+// Soft radial-gradient texture (this makes the dust round, not square)
+const dustCanvas = document.createElement('canvas');
+dustCanvas.width = 64;
+dustCanvas.height = 64;
+const dustCtx = dustCanvas.getContext('2d');
+const dustGrad = dustCtx.createRadialGradient(32, 32, 0, 32, 32, 32);
+dustGrad.addColorStop(0.0, 'rgba(216, 176, 120, 1)');
+dustGrad.addColorStop(0.4, 'rgba(216, 176, 120, 0.6)');
+dustGrad.addColorStop(1.0, 'rgba(216, 176, 120, 0)');
+dustCtx.fillStyle = dustGrad;
+dustCtx.fillRect(0, 0, 64, 64);
+const dustTexture = new THREE.CanvasTexture(dustCanvas);
+
 const dustMaterial = new THREE.PointsMaterial({
-  color: 0xd8b078,
-  size: 0.35,
+  size: 0.55,
+  map: dustTexture,
   transparent: true,
-  opacity: 0.6,
+  opacity: 0.75,
   depthWrite: false,
   sizeAttenuation: true,
+  blending: THREE.NormalBlending,
 });
 const dustPoints = new THREE.Points(dustGeometry, dustMaterial);
 scene.add(dustPoints);
@@ -521,7 +529,6 @@ scene.add(dustPoints);
 let dustSpawnTimer = 0;
 
 function spawnDustPuff(x, y, z) {
-  // Find a dead particle and revive it
   for (let i = 0; i < DUST_COUNT; i++) {
     if (dustLife[i] <= 0) {
       dustPositions[i * 3 + 0] = x + (Math.random() - 0.5) * 0.4;
@@ -540,14 +547,14 @@ const actions = {};
 let currentAction = null;
 
 // ---------------------------------------------------------------
-// 8. TUNING
+// 8. TUNING — snappier + better slide
 // ---------------------------------------------------------------
 const GROUND_Y = 0;
 const GRAVITY = -32;
-const JUMP_VELOCITY = 16;
-const SLIDE_DURATION = 0.7;
-const SLIDE_HEIGHT_SCALE = 0.5;
-const LANE_SLIDE_SPEED = 14;
+const JUMP_VELOCITY = 17;              // ⬅️ was 16
+const SLIDE_DURATION = 0.9;            // ⬅️ was 0.7 (longer slide)
+const SLIDE_HEIGHT_SCALE = 0.4;        // ⬅️ was 0.5 (flatter)
+const LANE_SLIDE_SPEED = 22;           // ⬅️ was 14 (snappier)
 
 const START_WORLD_SPEED = 12;
 const MAX_WORLD_SPEED = 24;
@@ -561,7 +568,7 @@ const DESPAWN_Z = 15;
 const SPAWN_INTERVAL = 1.3;
 
 const TYRE_STACK_HEIGHT = 0.85;
-const AWNING_BOTTOM = 1.25;
+const AWNING_BOTTOM = 1.4;             // ⬅️ was 1.25 (more clearance)
 const AWNING_HEIGHT = 1.6;
 const KEKE_HEIGHT = 2.4;
 const KEKE_WIDTH = 1.6;
@@ -584,7 +591,7 @@ const coinGeometry = new THREE.CylinderGeometry(
 const coinMaterial = new THREE.MeshStandardMaterial({
   color: 0xffcc00,
   emissive: 0xffaa00,
-  emissiveIntensity: 0.8,
+  emissiveIntensity: 0.9,
   metalness: 0.7,
   roughness: 0.3,
 });
@@ -675,7 +682,7 @@ function updatePauseBtnVisibility() {
 }
 
 // ---------------------------------------------------------------
-// 13. BEST SCORE + SETTINGS STORAGE
+// 13. SETTINGS
 // ---------------------------------------------------------------
 const BEST_KEY = 'nigerianRunner.bestScore';
 const SETTINGS_KEY = 'nigerianRunner.settings';
@@ -723,7 +730,6 @@ function updateSettingsUI() {
   toggleBloomBtn.textContent = bloomEnabled ? 'ON' : 'OFF';
   toggleBloomBtn.classList.toggle('off', !bloomEnabled);
 
-  // Apply toggle effects immediately
   vignettePass.enabled = gfxEnabled;
   fxaaPass.enabled = gfxEnabled;
   bloomPass.enabled = bloomEnabled;
@@ -734,7 +740,7 @@ function updateSettingsUI() {
 // ---------------------------------------------------------------
 const CHARACTER_URL = 'https://seb-creator01.github.io/NigerianRunner/Soldier.glb';
 
-const CHARACTER_SCALE = 1.0;
+const CHARACTER_SCALE = 1.15;         // ⬅️ was 1.0 (bigger, easier to see)
 const CHARACTER_ROTATION_Y = 0;
 const ANIM_RUN = 'Run';
 
@@ -775,6 +781,17 @@ loader.load(
     characterModel.scale.set(CHARACTER_SCALE, CHARACTER_SCALE, CHARACTER_SCALE);
     characterModel.position.y = 0;
     characterModel.rotation.y = CHARACTER_ROTATION_Y;
+
+    // Brighten the character so it's visible against the dark road
+    characterModel.traverse((child) => {
+      if (child.isMesh && child.material) {
+        // Boost emissive so the character always stands out
+        if (child.material.emissive) {
+          child.material.emissive.setHex(0x442200);
+          child.material.emissiveIntensity = 0.35;
+        }
+      }
+    });
 
     player.add(characterModel);
     fallbackBox.visible = false;
@@ -1045,9 +1062,9 @@ function moveLane(direction) {
 }
 
 // ---------------------------------------------------------------
-// 18. SWIPE DETECTION
+// 18. SWIPE DETECTION — more sensitive
 // ---------------------------------------------------------------
-const SWIPE_THRESHOLD = 20;
+const SWIPE_THRESHOLD = 15;            // ⬅️ was 20 (easier to trigger)
 let touchStartX = 0;
 let touchStartY = 0;
 
@@ -1210,7 +1227,6 @@ function startRun() {
   coinSpawnTimer = 0;
   score = 0;
 
-  // Reset dust
   for (let i = 0; i < DUST_COUNT; i++) dustLife[i] = 0;
   dustGeometry.attributes.position.needsUpdate = true;
 
@@ -1523,7 +1539,7 @@ function animate() {
       if (characterModel) {
         const targetScaleY = CHARACTER_SCALE * SLIDE_HEIGHT_SCALE;
         characterModel.scale.y +=
-          (targetScaleY - characterModel.scale.y) * 12 * delta;
+          (targetScaleY - characterModel.scale.y) * 16 * delta;
       }
       if (slideTimer <= 0) {
         isSliding = false;
@@ -1531,7 +1547,7 @@ function animate() {
     } else {
       if (characterModel) {
         characterModel.scale.y +=
-          (CHARACTER_SCALE - characterModel.scale.y) * 12 * delta;
+          (CHARACTER_SCALE - characterModel.scale.y) * 16 * delta;
       }
     }
 
@@ -1540,22 +1556,22 @@ function animate() {
     shadowDisc.position.x = player.position.x;
     shadowDisc.position.z = player.position.z;
     const jumpHeight = playerVisualY - GROUND_Y;
-    const fadeFactor = Math.max(0.05, 0.35 - jumpHeight * 0.06);
+    const fadeFactor = Math.max(0.05, 0.4 - jumpHeight * 0.06);
     shadowDisc.material.opacity = fadeFactor;
     const sizeFactor = Math.max(0.4, 1 - jumpHeight * 0.08);
     shadowDisc.scale.set(sizeFactor, sizeFactor, 1);
 
-    // ---- Dust particles ----
+    // Dust particles — fewer, softer, slower rise
     dustSpawnTimer += delta;
-    if (!isJumping && dustSpawnTimer > 0.06) {
+    if (!isJumping && dustSpawnTimer > 0.10) {
       dustSpawnTimer = 0;
       spawnDustPuff(player.position.x, 0.2, player.position.z + 0.5);
     }
     for (let i = 0; i < DUST_COUNT; i++) {
       if (dustLife[i] > 0) {
         dustLife[i] -= delta * 2.2;
-        dustPositions[i * 3 + 1] += delta * 0.5;      // rise slightly
-        dustPositions[i * 3 + 2] += delta * 2.0;      // drift back
+        dustPositions[i * 3 + 1] += delta * 0.3;
+        dustPositions[i * 3 + 2] += delta * 1.6;
       }
     }
     dustGeometry.attributes.position.needsUpdate = true;
@@ -1615,7 +1631,6 @@ function animate() {
     ' | spd: ' + worldSpeed.toFixed(1) +
     ' | ' + (characterModel ? 'model✓' : 'box');
 
-  // Render through the composer instead of renderer.render
   if (gfxEnabled || bloomEnabled) {
     composer.render();
   } else {
