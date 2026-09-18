@@ -7,8 +7,6 @@
   <meta name="theme-color" content="#d96c14" />
   <title>Nigerian Runner</title>
   <link rel="stylesheet" href="style.css" />
-
-  <!-- Preload the character model so it starts downloading immediately -->
   <link rel="preload" href="https://seb-creator01.github.io/NigerianRunner/Soldier.glb"
         as="fetch" crossorigin="anonymous" />
 </head>
@@ -19,6 +17,9 @@
     <!-- In-game HUD -->
     <div id="score">Score: 0</div>
     <button id="pause-btn">⏸</button>
+
+    <!-- Power-up indicators (top-left) -->
+    <div id="powerup-hud"></div>
 
     <!-- Loading Screen -->
     <div id="loading-screen" class="overlay">
