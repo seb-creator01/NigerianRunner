@@ -64,7 +64,7 @@ composer.addPass(bloomPass);
 
 const vignettePass = new ShaderPass(VignetteShader);
 vignettePass.uniforms['offset'].value = 1.0;
-vignettePass.uniforms['darkness'].value = 0.5;   // ⬅️ was 0.9, softer now
+vignettePass.uniforms['darkness'].value = 0.5;
 composer.addPass(vignettePass);
 
 const fxaaPass = new ShaderPass(FXAAShader);
@@ -501,7 +501,6 @@ for (let i = 0; i < DUST_COUNT; i++) {
 }
 dustGeometry.setAttribute('position', new THREE.BufferAttribute(dustPositions, 3));
 
-// Soft radial-gradient texture (this makes the dust round, not square)
 const dustCanvas = document.createElement('canvas');
 dustCanvas.width = 64;
 dustCanvas.height = 64;
@@ -547,14 +546,14 @@ const actions = {};
 let currentAction = null;
 
 // ---------------------------------------------------------------
-// 8. TUNING — snappier + better slide
+// 8. TUNING
 // ---------------------------------------------------------------
 const GROUND_Y = 0;
 const GRAVITY = -32;
-const JUMP_VELOCITY = 17;              // ⬅️ was 16
-const SLIDE_DURATION = 0.9;            // ⬅️ was 0.7 (longer slide)
-const SLIDE_HEIGHT_SCALE = 0.4;        // ⬅️ was 0.5 (flatter)
-const LANE_SLIDE_SPEED = 22;           // ⬅️ was 14 (snappier)
+const JUMP_VELOCITY = 17;
+const SLIDE_DURATION = 0.9;
+const SLIDE_HEIGHT_SCALE = 0.4;
+const LANE_SLIDE_SPEED = 22;
 
 const START_WORLD_SPEED = 12;
 const MAX_WORLD_SPEED = 24;
@@ -568,7 +567,7 @@ const DESPAWN_Z = 15;
 const SPAWN_INTERVAL = 1.3;
 
 const TYRE_STACK_HEIGHT = 0.85;
-const AWNING_BOTTOM = 1.4;             // ⬅️ was 1.25 (more clearance)
+const AWNING_BOTTOM = 1.4;
 const AWNING_HEIGHT = 1.6;
 const KEKE_HEIGHT = 2.4;
 const KEKE_WIDTH = 1.6;
@@ -740,7 +739,7 @@ function updateSettingsUI() {
 // ---------------------------------------------------------------
 const CHARACTER_URL = 'https://seb-creator01.github.io/NigerianRunner/Soldier.glb';
 
-const CHARACTER_SCALE = 1.15;         // ⬅️ was 1.0 (bigger, easier to see)
+const CHARACTER_SCALE = 1.15;
 const CHARACTER_ROTATION_Y = 0;
 const ANIM_RUN = 'Run';
 
@@ -765,12 +764,18 @@ function showLoadError(msg) {
   loadingBarFillEl.style.width = '100%';
 }
 
+// ⬇️ UPDATED — fades the loading screen out, then reveals the menu
 function finishLoading() {
   characterReady = true;
   playBtn.disabled = false;
   gameState = 'menu';
-  showScreen(mainMenuEl);
-  updatePauseBtnVisibility();
+
+  loadingScreenEl.classList.add('fade-out');
+  setTimeout(() => {
+    loadingScreenEl.classList.remove('fade-out');
+    showScreen(mainMenuEl);
+    updatePauseBtnVisibility();
+  }, 450);
 }
 
 loader.load(
@@ -782,10 +787,8 @@ loader.load(
     characterModel.position.y = 0;
     characterModel.rotation.y = CHARACTER_ROTATION_Y;
 
-    // Brighten the character so it's visible against the dark road
     characterModel.traverse((child) => {
       if (child.isMesh && child.material) {
-        // Boost emissive so the character always stands out
         if (child.material.emissive) {
           child.material.emissive.setHex(0x442200);
           child.material.emissiveIntensity = 0.35;
@@ -1062,9 +1065,9 @@ function moveLane(direction) {
 }
 
 // ---------------------------------------------------------------
-// 18. SWIPE DETECTION — more sensitive
+// 18. SWIPE DETECTION
 // ---------------------------------------------------------------
-const SWIPE_THRESHOLD = 15;            // ⬅️ was 20 (easier to trigger)
+const SWIPE_THRESHOLD = 15;
 let touchStartX = 0;
 let touchStartY = 0;
 
@@ -1561,7 +1564,6 @@ function animate() {
     const sizeFactor = Math.max(0.4, 1 - jumpHeight * 0.08);
     shadowDisc.scale.set(sizeFactor, sizeFactor, 1);
 
-    // Dust particles — fewer, softer, slower rise
     dustSpawnTimer += delta;
     if (!isJumping && dustSpawnTimer > 0.10) {
       dustSpawnTimer = 0;
