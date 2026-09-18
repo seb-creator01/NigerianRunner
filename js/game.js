@@ -118,147 +118,7 @@ const STRIPE_COUNT = 60;
   }
 });
 
-// ---------------------------------------------------------------
-// 6b. ENVIRONMENT
-// ---------------------------------------------------------------
-const environmentGroup = new THREE.Group();
-scene.add(environmentGroup);
-
-const ENV_LENGTH = 200;
-const ENV_START_Z = 10;
-const ENV_END_Z = ENV_START_Z - ENV_LENGTH;
-
-function makeSignTexture(text, bgColor = '#e0b070', textColor = '#3a1a00') {
-  const canvas = document.createElement('canvas');
-  canvas.width = 512;
-  canvas.height = 256;
-  const ctx = canvas.getContext('2d');
-
-  ctx.fillStyle = bgColor;
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-  ctx.strokeStyle = textColor;
-  ctx.lineWidth = 12;
-  ctx.strokeRect(6, 6, canvas.width - 12, canvas.height - 12);
-
-  ctx.fillStyle = textColor;
-  ctx.font = 'bold 90px Arial, sans-serif';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText(text.toUpperCase(), canvas.width / 2, canvas.height / 2);
-
-  const tex = new THREE.CanvasTexture(canvas);
-  tex.anisotropy = 4;
-  return tex;
-}
-
-function makeSign(text, bgColor, textColor, side) {
-  const group = new THREE.Group();
-
-  const poleGeo = new THREE.CylinderGeometry(0.05, 0.06, 2.4, 6);
-  const poleMat = new THREE.MeshStandardMaterial({ color: 0x4a2a10 });
-  const pole = new THREE.Mesh(poleGeo, poleMat);
-  pole.position.y = 1.2;
-  group.add(pole);
-
-  const signGeo = new THREE.PlaneGeometry(1.2, 0.6);
-  const signMat = new THREE.MeshStandardMaterial({
-    map: makeSignTexture(text, bgColor, textColor),
-    side: THREE.DoubleSide,
-    emissive: 0x221100,
-    emissiveIntensity: 0.3,
-  });
-  const sign = new THREE.Mesh(signGeo, signMat);
-  sign.position.y = 2.2;
-  sign.rotation.y = side === -1 ? -Math.PI / 2 : Math.PI / 2;
-  group.add(sign);
-
-  group.userData.isEnvironment = true;
-  return group;
-}
-
-function makePaintedWall(width, height, side) {
-  const group = new THREE.Group();
-
-  const wallGeo = new THREE.BoxGeometry(0.2, 1.2, width);
-  const colors = [0xd94f2b, 0x2b8d3a, 0xf2c419, 0x2b6bd9, 0xc42b80];
-  const color = colors[Math.floor(Math.random() * colors.length)];
-  const wallMat = new THREE.MeshStandardMaterial({ color });
-  const wall = new THREE.Mesh(wallGeo, wallMat);
-  wall.position.set(side * 3.6, 0.6, 0);
-  group.add(wall);
-
-  group.userData.isEnvironment = true;
-  return group;
-}
-
-function makeUmbrella(x, z) {
-  const group = new THREE.Group();
-
-  const poleGeo = new THREE.CylinderGeometry(0.04, 0.04, 1.8, 6);
-  const poleMat = new THREE.MeshStandardMaterial({ color: 0x555555 });
-  const pole = new THREE.Mesh(poleGeo, poleMat);
-  pole.position.y = 0.9;
-  group.add(pole);
-
-  const umbColors = [0xd94f2b, 0x2b8d3a, 0xf2c419, 0x2b6bd9];
-  const umbColor = umbColors[Math.floor(Math.random() * umbColors.length)];
-  const umbGeo = new THREE.ConeGeometry(0.7, 0.4, 8);
-  const umbMat = new THREE.MeshStandardMaterial({ color: umbColor });
-  const umb = new THREE.Mesh(umbGeo, umbMat);
-  umb.position.y = 1.85;
-  group.add(umb);
-
-  group.position.set(x, 0, z);
-  group.userData.isEnvironment = true;
-  return group;
-}
-
-function makeGenerator(x, z) {
-  const group = new THREE.Group();
-
-  const bodyGeo = new THREE.BoxGeometry(0.7, 0.5, 0.5);
-  const bodyMat = new THREE.MeshStandardMaterial({ color: 0x8a3a1a });
-  const body = new THREE.Mesh(bodyGeo, bodyMat);
-  body.position.y = 0.25;
-  group.add(body);
-
-  const pipeGeo = new THREE.CylinderGeometry(0.05, 0.05, 0.4, 6);
-  const pipeMat = new THREE.MeshStandardMaterial({ color: 0x333333 });
-  const pipe = new THREE.Mesh(pipeGeo, pipeMat);
-  pipe.position.set(0.25, 0.65, 0);
-  group.add(pipe);
-
-  const handleGeo = new THREE.BoxGeometry(0.6, 0.04, 0.04);
-  const handleMat = new THREE.MeshStandardMaterial({ color: 0x222222 });
-  const handle = new THREE.Mesh(handleGeo, handleMat);
-  handle.position.y = 0.55;
-  group.add(handle);
-
-  group.position.set(x, 0, z);
-  group.userData.isEnvironment = true;
-  return group;
-}
-
-function makeWaterTank(x, y, z) {
-  const group = new THREE.Group();
-
-  const tankGeo = new THREE.CylinderGeometry(0.35, 0.35, 0.9, 12);
-  const tankMat = new THREE.MeshStandardMaterial({ color: 0x1a1a1a });
-  const tank = new THREE.Mesh(tankGeo, tankMat);
-  group.add(tank);
-
-  const capGeo = new THREE.CylinderGeometry(0.1, 0.1, 0.15, 8);
-  const capMat = new THREE.MeshStandardMaterial({ color: 0x2a2a2a });
-  const cap = new THREE.Mesh(capGeo, capMat);
-  cap.position.y = 0.55;
-  group.add(cap);
-
-  group.position.set(x, y, z);
-  group.userData.isEnvironment = true;
-  return group;
-}
-
+// Sidewalks
 const sidewalkGeometry = new THREE.BoxGeometry(1.5, 0.15, ROAD_LENGTH);
 const sidewalkMaterial = new THREE.MeshStandardMaterial({ color: 0xd8c9a8 });
 [-1, 1].forEach((side) => {
@@ -267,12 +127,7 @@ const sidewalkMaterial = new THREE.MeshStandardMaterial({ color: 0xd8c9a8 });
   scene.add(sidewalk);
 });
 
-// ---------------------------------------------------------------
-// 6c. ROADSIDE BARRIERS
-// ---------------------------------------------------------------
-const barrierGroup = new THREE.Group();
-scene.add(barrierGroup);
-
+// Barriers
 const barrierHeight = 0.9;
 const barrierThickness = 0.15;
 const barrierX = ROAD_WIDTH / 2 + 1.7;
@@ -300,7 +155,7 @@ const barrierCapMat = new THREE.MeshStandardMaterial({
     barrierHeight / 2,
     -ROAD_LENGTH / 2 + 20
   );
-  barrierGroup.add(body);
+  scene.add(body);
 
   const capGeo = new THREE.BoxGeometry(
     barrierThickness + 0.05,
@@ -313,7 +168,7 @@ const barrierCapMat = new THREE.MeshStandardMaterial({
     barrierHeight + 0.04,
     -ROAD_LENGTH / 2 + 20
   );
-  barrierGroup.add(cap);
+  scene.add(cap);
 
   const markerCount = Math.floor(ROAD_LENGTH / 12);
   for (let i = 0; i < markerCount; i++) {
@@ -329,15 +184,54 @@ const barrierCapMat = new THREE.MeshStandardMaterial({
       barrierHeight * 0.7,
       20 - i * 12
     );
-    barrierGroup.add(marker);
+    scene.add(marker);
   }
 });
+
+// ---------------------------------------------------------------
+// 6b. SECTION SYSTEM
+// ---------------------------------------------------------------
+const SECTION_LENGTH = 60;
+const SECTION_COUNT = 3;
+
+const sections = [];
+
+const SECTION_TYPES = ['city'];
+let currentSectionType = 'city';
 
 const BUILDING_COLORS = [
   0xc17a4a, 0xa8603a, 0xd9a066, 0x8c5a3c, 0xe0c088, 0x9c6a4c,
 ];
 
-function makeBuilding(width, height, depth, x, z, side) {
+const ROAD_EDGE = ROAD_WIDTH / 2 + 2.5;
+
+function makeSignTexture(text, bgColor = '#e0b070', textColor = '#3a1a00') {
+  const canvas = document.createElement('canvas');
+  canvas.width = 512;
+  canvas.height = 256;
+  const ctx = canvas.getContext('2d');
+
+  ctx.fillStyle = bgColor;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  ctx.strokeStyle = textColor;
+  ctx.lineWidth = 12;
+  ctx.strokeRect(6, 6, canvas.width - 12, canvas.height - 12);
+
+  ctx.fillStyle = textColor;
+  ctx.font = 'bold 90px Arial, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(text.toUpperCase(), canvas.width / 2, canvas.height / 2);
+
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.anisotropy = 4;
+  return tex;
+}
+
+function buildBuilding(width, height, depth, x, z, side) {
+  const group = new THREE.Group();
+
   const color =
     BUILDING_COLORS[Math.floor(Math.random() * BUILDING_COLORS.length)];
 
@@ -345,12 +239,13 @@ function makeBuilding(width, height, depth, x, z, side) {
   const mat = new THREE.MeshStandardMaterial({ color });
   const building = new THREE.Mesh(geo, mat);
   building.position.set(x, height / 2, z);
+  group.add(building);
 
   const roofGeo = new THREE.BoxGeometry(width + 0.15, 0.2, depth + 0.15);
   const roofMat = new THREE.MeshStandardMaterial({ color: 0x3a2a1a });
   const roof = new THREE.Mesh(roofGeo, roofMat);
-  roof.position.y = height / 2 + 0.1;
-  building.add(roof);
+  roof.position.set(x, height + 0.1, z);
+  group.add(roof);
 
   const windowCount = Math.max(1, Math.floor(height / 2));
   for (let i = 0; i < windowCount; i++) {
@@ -360,56 +255,163 @@ function makeBuilding(width, height, depth, x, z, side) {
       emissive: 0x101520,
     });
     const win = new THREE.Mesh(winGeo, winMat);
-    const faceX = (width / 2 + 0.03) * (side === -1 ? 1 : -1);
-    win.position.set(faceX, -height / 2 + 1.2 + i * 1.6, 0);
+    const faceX = x + (side === -1 ? width / 2 + 0.03 : -width / 2 - 0.03);
+    win.position.set(faceX, 1.2 + i * 1.6, z);
     win.rotation.y = side === -1 ? 0 : Math.PI;
-    building.add(win);
+    group.add(win);
   }
 
-  building.userData.isEnvironment = true;
-  return building;
+  return group;
 }
 
-const BUILDING_INTERVAL = 8;
-const ROAD_EDGE = ROAD_WIDTH / 2 + 2.5;
+function buildSign(text, bgColor, textColor, x, z, side) {
+  const group = new THREE.Group();
 
-for (let side of [-1, 1]) {
-  let z = ENV_START_Z - 3;
-  while (z > ENV_END_Z) {
-    const w = 3 + Math.random() * 2.5;
-    const h = 3 + Math.random() * 4;
-    const d = 4 + Math.random() * 3;
-    const x = side * (ROAD_EDGE + d / 2 + Math.random() * 2);
+  const poleGeo = new THREE.CylinderGeometry(0.05, 0.06, 2.4, 6);
+  const poleMat = new THREE.MeshStandardMaterial({ color: 0x4a2a10 });
+  const pole = new THREE.Mesh(poleGeo, poleMat);
+  pole.position.set(x, 1.2, z);
+  group.add(pole);
 
-    const building = makeBuilding(w, h, d, x, z, side);
-    environmentGroup.add(building);
+  const signGeo = new THREE.PlaneGeometry(1.2, 0.6);
+  const signMat = new THREE.MeshStandardMaterial({
+    map: makeSignTexture(text, bgColor, textColor),
+    side: THREE.DoubleSide,
+    emissive: 0x221100,
+    emissiveIntensity: 0.3,
+  });
+  const sign = new THREE.Mesh(signGeo, signMat);
+  sign.position.set(x, 2.2, z);
+  sign.rotation.y = side === -1 ? -Math.PI / 2 : Math.PI / 2;
+  group.add(sign);
 
-    if (Math.random() < 0.6) {
-      const painted = makePaintedWall(d, 1.2, side);
-      painted.position.set(side * (ROAD_EDGE + 0.2), 0, z);
-      environmentGroup.add(painted);
-    }
+  return group;
+}
 
-    if (Math.random() < 0.35) {
-      const tank = makeWaterTank(
-        x + (Math.random() - 0.5) * (w - 0.8),
-        h + 0.45,
-        z
-      );
-      environmentGroup.add(tank);
-    }
+function buildPalm(x, z) {
+  const group = new THREE.Group();
 
-    if (Math.random() < 0.4) {
-      const kioskW = 1.2 + Math.random() * 0.6;
-      const kioskH = 1.2 + Math.random() * 0.6;
-      const kioskD = 1.2 + Math.random() * 0.6;
-      const kioskX = side * (ROAD_EDGE + kioskD / 2);
-      const kiosk = makeBuilding(kioskW, kioskH, kioskD, kioskX, z + 4, side);
-      environmentGroup.add(kiosk);
-    }
+  const trunkGeo = new THREE.CylinderGeometry(0.1, 0.15, 2.5, 6);
+  const trunkMat = new THREE.MeshStandardMaterial({ color: 0x6b4423 });
+  const trunk = new THREE.Mesh(trunkGeo, trunkMat);
+  trunk.position.set(x, 1.25, z);
+  group.add(trunk);
 
-    z -= BUILDING_INTERVAL;
+  const tuftMat = new THREE.MeshStandardMaterial({ color: 0x2f6b3a });
+  for (let i = 0; i < 5; i++) {
+    const tuftGeo = new THREE.SphereGeometry(0.5, 6, 4);
+    const tuft = new THREE.Mesh(tuftGeo, tuftMat);
+    const angle = (i / 5) * Math.PI * 2;
+    tuft.position.set(x + Math.cos(angle) * 0.3, 2.6, z + Math.sin(angle) * 0.3);
+    tuft.scale.set(1, 0.4, 1);
+    group.add(tuft);
   }
+
+  return group;
+}
+
+function buildLampPost(x, z) {
+  const group = new THREE.Group();
+
+  const poleGeo = new THREE.CylinderGeometry(0.06, 0.08, 3.5, 6);
+  const poleMat = new THREE.MeshStandardMaterial({ color: 0x2a2a2a });
+  const pole = new THREE.Mesh(poleGeo, poleMat);
+  pole.position.set(x, 1.75, z);
+  group.add(pole);
+
+  const armGeo = new THREE.BoxGeometry(0.6, 0.08, 0.08);
+  const armMat = new THREE.MeshStandardMaterial({ color: 0x2a2a2a });
+  const arm = new THREE.Mesh(armGeo, armMat);
+  arm.position.set(x + (x > 0 ? -0.3 : 0.3), 3.4, z);
+  group.add(arm);
+
+  const bulbGeo = new THREE.SphereGeometry(0.15, 8, 6);
+  const bulbMat = new THREE.MeshStandardMaterial({
+    color: 0xfff0c0,
+    emissive: 0xffd080,
+    emissiveIntensity: 1.5,
+  });
+  const bulb = new THREE.Mesh(bulbGeo, bulbMat);
+  bulb.position.set(x + (x > 0 ? -0.6 : 0.6), 3.35, z);
+  group.add(bulb);
+
+  return group;
+}
+
+function buildGenerator(x, z) {
+  const group = new THREE.Group();
+
+  const bodyGeo = new THREE.BoxGeometry(0.7, 0.5, 0.5);
+  const bodyMat = new THREE.MeshStandardMaterial({ color: 0x8a3a1a });
+  const body = new THREE.Mesh(bodyGeo, bodyMat);
+  body.position.set(x, 0.25, z);
+  group.add(body);
+
+  const pipeGeo = new THREE.CylinderGeometry(0.05, 0.05, 0.4, 6);
+  const pipeMat = new THREE.MeshStandardMaterial({ color: 0x333333 });
+  const pipe = new THREE.Mesh(pipeGeo, pipeMat);
+  pipe.position.set(x + 0.25, 0.65, z);
+  group.add(pipe);
+
+  const handleGeo = new THREE.BoxGeometry(0.6, 0.04, 0.04);
+  const handleMat = new THREE.MeshStandardMaterial({ color: 0x222222 });
+  const handle = new THREE.Mesh(handleGeo, handleMat);
+  handle.position.set(x, 0.55, z);
+  group.add(handle);
+
+  return group;
+}
+
+function buildUmbrella(x, z) {
+  const group = new THREE.Group();
+
+  const poleGeo = new THREE.CylinderGeometry(0.04, 0.04, 1.8, 6);
+  const poleMat = new THREE.MeshStandardMaterial({ color: 0x555555 });
+  const pole = new THREE.Mesh(poleGeo, poleMat);
+  pole.position.set(x, 0.9, z);
+  group.add(pole);
+
+  const umbColors = [0xd94f2b, 0x2b8d3a, 0xf2c419, 0x2b6bd9];
+  const umbColor = umbColors[Math.floor(Math.random() * umbColors.length)];
+  const umbGeo = new THREE.ConeGeometry(0.7, 0.4, 8);
+  const umbMat = new THREE.MeshStandardMaterial({ color: umbColor });
+  const umb = new THREE.Mesh(umbGeo, umbMat);
+  umb.position.set(x, 1.85, z);
+  group.add(umb);
+
+  return group;
+}
+
+function buildWaterTank(x, y, z) {
+  const group = new THREE.Group();
+
+  const tankGeo = new THREE.CylinderGeometry(0.35, 0.35, 0.9, 12);
+  const tankMat = new THREE.MeshStandardMaterial({ color: 0x1a1a1a });
+  const tank = new THREE.Mesh(tankGeo, tankMat);
+  tank.position.set(x, y, z);
+  group.add(tank);
+
+  const capGeo = new THREE.CylinderGeometry(0.1, 0.1, 0.15, 8);
+  const capMat = new THREE.MeshStandardMaterial({ color: 0x2a2a2a });
+  const cap = new THREE.Mesh(capGeo, capMat);
+  cap.position.set(x, y + 0.55, z);
+  group.add(cap);
+
+  return group;
+}
+
+function buildPaintedWall(width, x, z) {
+  const group = new THREE.Group();
+
+  const wallGeo = new THREE.BoxGeometry(0.2, 1.2, width);
+  const colors = [0xd94f2b, 0x2b8d3a, 0xf2c419, 0x2b6bd9, 0xc42b80];
+  const color = colors[Math.floor(Math.random() * colors.length)];
+  const wallMat = new THREE.MeshStandardMaterial({ color });
+  const wall = new THREE.Mesh(wallGeo, wallMat);
+  wall.position.set(x, 0.6, z);
+  group.add(wall);
+
+  return group;
 }
 
 const SIGN_DATA = [
@@ -425,103 +427,129 @@ const SIGN_DATA = [
   { text: 'WELCOME',       bg: '#d94f2b', fg: '#fff5dd' },
 ];
 
-for (let side of [-1, 1]) {
-  for (let i = 0; i < 14; i++) {
-    const z = ENV_START_Z - i * (ENV_LENGTH / 14) - Math.random() * 4;
-    const data = SIGN_DATA[Math.floor(Math.random() * SIGN_DATA.length)];
-    const x = side * (ROAD_EDGE - 0.5);
-    const sign = makeSign(data.text, data.bg, data.fg, side);
-    sign.position.set(x, 0, z);
-    environmentGroup.add(sign);
+function populateSection(sectionGroup, type, centerZ) {
+  while (sectionGroup.children.length > 0) {
+    sectionGroup.remove(sectionGroup.children[0]);
+  }
+
+  const half = SECTION_LENGTH / 2;
+
+  if (type === 'city') {
+    for (let side of [-1, 1]) {
+      let z = centerZ + half - 3;
+      const endZ = centerZ - half;
+      while (z > endZ) {
+        const w = 3 + Math.random() * 2.5;
+        const h = 3 + Math.random() * 4;
+        const d = 4 + Math.random() * 3;
+        const x = side * (ROAD_EDGE + d / 2 + Math.random() * 2);
+
+        sectionGroup.add(buildBuilding(w, h, d, x, z, side));
+
+        if (Math.random() < 0.6) {
+          sectionGroup.add(buildPaintedWall(d, side * (ROAD_EDGE + 0.2), z));
+        }
+
+        if (Math.random() < 0.35) {
+          const tankX = x + (Math.random() - 0.5) * (w - 0.8);
+          sectionGroup.add(buildWaterTank(tankX, h + 0.45, z));
+        }
+
+        z -= 8;
+      }
+    }
+
+    for (let side of [-1, 1]) {
+      for (let i = 0; i < 3; i++) {
+        const z = centerZ + half - 5 - i * (SECTION_LENGTH / 3);
+        const data = SIGN_DATA[Math.floor(Math.random() * SIGN_DATA.length)];
+        const x = side * (ROAD_EDGE - 0.5);
+        sectionGroup.add(buildSign(data.text, data.bg, data.fg, x, z, side));
+      }
+    }
+
+    for (let i = 0; i < 4; i++) {
+      const side = Math.random() < 0.5 ? -1 : 1;
+      const z = centerZ + (Math.random() - 0.5) * SECTION_LENGTH;
+      const x = side * (ROAD_EDGE + 1 + Math.random() * 2);
+      sectionGroup.add(buildPalm(x, z));
+    }
+
+    for (let side of [-1, 1]) {
+      sectionGroup.add(buildLampPost(side * (ROAD_EDGE - 0.3), centerZ));
+    }
+
+    for (let i = 0; i < 2; i++) {
+      if (Math.random() < 0.5) {
+        const side = Math.random() < 0.5 ? -1 : 1;
+        const z = centerZ + (Math.random() - 0.5) * SECTION_LENGTH;
+        const x = side * (ROAD_EDGE + 0.3);
+        sectionGroup.add(buildGenerator(x, z));
+      }
+    }
+
+    for (let i = 0; i < 2; i++) {
+      if (Math.random() < 0.5) {
+        const side = Math.random() < 0.5 ? -1 : 1;
+        const z = centerZ + (Math.random() - 0.5) * SECTION_LENGTH;
+        const x = side * (ROAD_EDGE + 0.5 + Math.random() * 0.5);
+        sectionGroup.add(buildUmbrella(x, z));
+      }
+    }
   }
 }
 
-for (let i = 0; i < 10; i++) {
-  const side = Math.random() < 0.5 ? -1 : 1;
-  const z = ENV_START_Z - Math.random() * ENV_LENGTH;
-  const x = side * (ROAD_EDGE + 0.3);
-  environmentGroup.add(makeGenerator(x, z));
-}
-
-for (let i = 0; i < 10; i++) {
-  const side = Math.random() < 0.5 ? -1 : 1;
-  const z = ENV_START_Z - Math.random() * ENV_LENGTH;
-  const x = side * (ROAD_EDGE + 0.5 + Math.random() * 0.5);
-  environmentGroup.add(makeUmbrella(x, z));
-}
-
-function makePalm(x, z) {
+function createSection(centerZ, type) {
   const group = new THREE.Group();
-
-  const trunkGeo = new THREE.CylinderGeometry(0.1, 0.15, 2.5, 6);
-  const trunkMat = new THREE.MeshStandardMaterial({ color: 0x6b4423 });
-  const trunk = new THREE.Mesh(trunkGeo, trunkMat);
-  trunk.position.y = 1.25;
-  group.add(trunk);
-
-  const tuftMat = new THREE.MeshStandardMaterial({ color: 0x2f6b3a });
-  for (let i = 0; i < 5; i++) {
-    const tuftGeo = new THREE.SphereGeometry(0.5, 6, 4);
-    const tuft = new THREE.Mesh(tuftGeo, tuftMat);
-    const angle = (i / 5) * Math.PI * 2;
-    tuft.position.set(Math.cos(angle) * 0.3, 2.6, Math.sin(angle) * 0.3);
-    tuft.scale.set(1, 0.4, 1);
-    group.add(tuft);
-  }
-
-  group.position.set(x, 0, z);
-  group.userData.isEnvironment = true;
+  group.userData.type = type;
+  group.userData.centerZ = centerZ;
+  populateSection(group, type, centerZ);
+  scene.add(group);
+  sections.push(group);
   return group;
 }
 
-for (let i = 0; i < 12; i++) {
-  const side = Math.random() < 0.5 ? -1 : 1;
-  const z = ENV_START_Z - Math.random() * ENV_LENGTH;
-  const x = side * (ROAD_EDGE + 1 + Math.random() * 2);
-  environmentGroup.add(makePalm(x, z));
-}
+function initializeSections() {
+  sections.forEach((s) => scene.remove(s));
+  sections.length = 0;
 
-function makeLampPost(x, z) {
-  const group = new THREE.Group();
-
-  const poleGeo = new THREE.CylinderGeometry(0.06, 0.08, 3.5, 6);
-  const poleMat = new THREE.MeshStandardMaterial({ color: 0x2a2a2a });
-  const pole = new THREE.Mesh(poleGeo, poleMat);
-  pole.position.y = 1.75;
-  group.add(pole);
-
-  const armGeo = new THREE.BoxGeometry(0.6, 0.08, 0.08);
-  const armMat = new THREE.MeshStandardMaterial({ color: 0x2a2a2a });
-  const arm = new THREE.Mesh(armGeo, armMat);
-  arm.position.set(x > 0 ? -0.3 : 0.3, 3.4, 0);
-  group.add(arm);
-
-  const bulbGeo = new THREE.SphereGeometry(0.15, 8, 6);
-  const bulbMat = new THREE.MeshStandardMaterial({
-    color: 0xfff0c0,
-    emissive: 0xffd080,
-    emissiveIntensity: 1.5,
-  });
-  const bulb = new THREE.Mesh(bulbGeo, bulbMat);
-  bulb.position.set(x > 0 ? -0.6 : 0.6, 3.35, 0);
-  group.add(bulb);
-
-  group.position.set(x, 0, z);
-  group.userData.isEnvironment = true;
-  return group;
-}
-
-for (let side of [-1, 1]) {
-  for (let i = 0; i < 8; i++) {
-    const z = ENV_START_Z - i * (ENV_LENGTH / 8);
-    const x = side * (ROAD_EDGE - 0.3);
-    environmentGroup.add(makeLampPost(x, z));
+  for (let i = 0; i < SECTION_COUNT; i++) {
+    const centerZ = SECTION_LENGTH - i * SECTION_LENGTH;
+    const type = SECTION_TYPES[Math.floor(Math.random() * SECTION_TYPES.length)];
+    createSection(centerZ, type);
   }
 }
 
-environmentGroup.children.forEach((obj) => {
-  obj.userData.initialZ = obj.position.z;
-});
+function updateSections(effectiveSpeed, delta) {
+  const moveAmount = effectiveSpeed * delta;
+
+  for (let i = 0; i < sections.length; i++) {
+    sections[i].position.z += moveAmount;
+  }
+
+  const recycleThreshold = SECTION_LENGTH / 2 + SECTION_LENGTH;
+
+  for (let i = 0; i < sections.length; i++) {
+    const section = sections[i];
+    if (section.position.z > recycleThreshold) {
+      const newType = SECTION_TYPES[Math.floor(Math.random() * SECTION_TYPES.length)];
+
+      let minCenter = Infinity;
+      sections.forEach((s) => {
+        if (s !== section) minCenter = Math.min(minCenter, s.position.z);
+      });
+
+      const newCenterZ = minCenter - SECTION_LENGTH;
+
+      section.position.z = newCenterZ;
+      section.userData.type = newType;
+      populateSection(section, newType, newCenterZ);
+      currentSectionType = newType;
+    }
+  }
+}
+
+initializeSections();
 
 // ---------------------------------------------------------------
 // 7. PLAYER
@@ -561,7 +589,6 @@ const shieldBubble = new THREE.Mesh(
     transparent: true,
     opacity: 0.25,
     depthWrite: false,
-    wireframe: false,
   })
 );
 shieldBubble.position.y = 1.1;
@@ -581,7 +608,6 @@ magnetRing.position.y = 0.6;
 magnetRing.visible = false;
 player.add(magnetRing);
 
-// DUST PARTICLES
 const DUST_COUNT = 30;
 const dustGeometry = new THREE.BufferGeometry();
 const dustPositions = new Float32Array(DUST_COUNT * 3);
@@ -662,7 +688,6 @@ const SPAWN_INTERVAL = 1.3;
 const TYRE_STACK_HEIGHT = 0.85;
 const AWNING_BOTTOM = 1.4;
 const AWNING_HEIGHT = 1.6;
-const KEKE_HEIGHT = 2.4;
 const KEKE_WIDTH = 1.6;
 const KEKE_DEPTH = 2.0;
 const obstacleDepth = 1.4;
@@ -1102,10 +1127,8 @@ function makeAwning() {
 function makeKekeNapep() {
   const group = new THREE.Group();
 
-  const bodyColor = 0xf2c419;
-
   const bodyGeo = new THREE.BoxGeometry(KEKE_WIDTH, 1.5, KEKE_DEPTH);
-  const bodyMat = new THREE.MeshStandardMaterial({ color: bodyColor });
+  const bodyMat = new THREE.MeshStandardMaterial({ color: 0xf2c419 });
   const body = new THREE.Mesh(bodyGeo, bodyMat);
   body.position.y = 0.9;
   group.add(body);
@@ -1526,9 +1549,7 @@ function startRun() {
   runTime = 0;
   speedLevel = 1;
 
-  environmentGroup.children.forEach((obj) => {
-    obj.position.z = obj.userData.initialZ;
-  });
+  initializeSections();
 
   scoreEl.textContent = 'Score: 0';
 
@@ -1565,9 +1586,7 @@ function goToMainMenu() {
   runTime = 0;
   speedLevel = 1;
 
-  environmentGroup.children.forEach((obj) => {
-    obj.position.z = obj.userData.initialZ;
-  });
+  initializeSections();
 
   scoreEl.textContent = 'Score: 0';
   menuBestEl.textContent = 'Best Score: ' + getBestScore();
@@ -1826,8 +1845,6 @@ function animate() {
     const speedMultiplier = activePowerups.speed > 0 ? 2 : 1;
     const effectiveSpeed = worldSpeed * speedMultiplier;
 
-    // Road is static — no scroll.
-
     stripeGroup.children.forEach((stripe) => {
       stripe.position.z += effectiveSpeed * delta;
       if (stripe.position.z > 6) {
@@ -1835,12 +1852,7 @@ function animate() {
       }
     });
 
-    environmentGroup.children.forEach((obj) => {
-      obj.position.z += effectiveSpeed * delta;
-      if (obj.position.z > ENV_START_Z) {
-        obj.position.z -= ENV_LENGTH;
-      }
-    });
+    updateSections(effectiveSpeed, delta);
 
     runTime += delta;
     worldSpeed = Math.min(
@@ -1997,11 +2009,8 @@ function animate() {
     'state: ' + gameState +
     ' | L' + speedLevel +
     ' | spd: ' + worldSpeed.toFixed(1) +
-    ' | ' + (characterModel ? 'model✓' : 'box') +
-    ' | ' + (activePowerups.shield > 0 ? '🛡️' : '') +
-    (activePowerups.magnet > 0 ? '🧲' : '') +
-    (activePowerups.speed > 0 ? '⚡' : '') +
-    (activePowerups.double > 0 ? '💰' : '');
+    ' | ' + currentSectionType +
+    ' | ' + (characterModel ? 'model✓' : 'box');
 
   if (gfxEnabled || bloomEnabled) {
     composer.render();
