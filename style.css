@@ -86,6 +86,65 @@ html, body {
   display: none;
 }
 
+/* ---------- Power-up HUD (top-left) ---------- */
+#powerup-hud {
+  position: fixed;
+  top: 80px;
+  left: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 10;
+  pointer-events: none;
+}
+
+.powerup-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(0, 0, 0, 0.6);
+  border-radius: 10px;
+  padding: 6px 10px;
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: bold;
+  min-width: 110px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+}
+
+.powerup-icon {
+  font-size: 20px;
+  line-height: 1;
+}
+
+.powerup-bar-outer {
+  flex: 1;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.powerup-bar-fill {
+  height: 100%;
+  width: 100%;
+  background: linear-gradient(90deg, #ffcb6b, #ff9d3a);
+  transition: width 0.1s linear;
+}
+
+.powerup-item.shield {
+  border: 1px solid rgba(80, 180, 255, 0.8);
+}
+.powerup-item.magnet {
+  border: 1px solid rgba(255, 200, 60, 0.8);
+}
+.powerup-item.speed {
+  border: 1px solid rgba(255, 100, 100, 0.8);
+}
+.powerup-item.double {
+  border: 1px solid rgba(120, 220, 120, 0.8);
+}
+
 /* ---------- Debug ---------- */
 #debug {
   position: fixed;
@@ -127,7 +186,6 @@ html, body {
   display: none !important;
 }
 
-/* Fade-out animation when loading completes */
 @keyframes overlayFadeOut {
   0%   { opacity: 1; transform: scale(1); }
   100% { opacity: 0; transform: scale(1.03); }
@@ -138,7 +196,6 @@ html, body {
   pointer-events: none;
 }
 
-/* The loading screen has a special animated background */
 #loading-screen {
   background: linear-gradient(160deg, #2a1408 0%, #4a1e08 35%, #7a2e0a 70%, #2a1408 100%);
   background-size: 400% 400%;
@@ -151,7 +208,6 @@ html, body {
   100% { background-position: 0% 50%; }
 }
 
-/* ---- Sun icon on the loading screen ---- */
 .loading-sun {
   width: 110px;
   height: 110px;
@@ -170,7 +226,6 @@ html, body {
   100% { transform: scale(1);    filter: brightness(1); }
 }
 
-/* ---- Titles ---- */
 .overlay h1 {
   color: #ffcb6b;
   font-size: 36px;
@@ -228,7 +283,6 @@ html, body {
   font-weight: bold;
 }
 
-/* ---- Loading tagline (bright, glowing) ---- */
 .loading-tagline {
   color: #ffffff !important;
   font-size: 18px !important;
@@ -239,7 +293,6 @@ html, body {
   text-shadow: 0 0 12px rgba(255, 180, 80, 0.7), 0 2px 6px rgba(0, 0, 0, 0.9);
 }
 
-/* ---------- Loading Bar ---------- */
 .loading-bar-outer {
   position: relative;
   width: 280px;
@@ -265,7 +318,6 @@ html, body {
   z-index: 2;
 }
 
-/* Shimmer overlay that slides across the bar */
 .loading-bar-shimmer {
   position: absolute;
   top: 0;
@@ -298,7 +350,6 @@ html, body {
   letter-spacing: 1px;
 }
 
-/* ---- Loading credit at the bottom ---- */
 .loading-credit {
   position: absolute;
   bottom: 60px;
@@ -329,7 +380,6 @@ html, body {
   opacity: 1;
 }
 
-/* ---------- Buttons ---------- */
 .big-btn {
   padding: 18px 56px;
   font-size: 24px;
@@ -370,7 +420,6 @@ html, body {
   background: rgba(255, 203, 107, 0.25);
 }
 
-/* ---------- Settings rows ---------- */
 .setting-row {
   display: flex;
   align-items: center;
