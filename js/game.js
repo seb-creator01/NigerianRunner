@@ -80,7 +80,7 @@ const STRIPE_COUNT = 60;
 });
 
 // ---------------------------------------------------------------
-// 6b. ENVIRONMENT
+// 6b. ENVIRONMENT — Nigerian street scene
 // ---------------------------------------------------------------
 const environmentGroup = new THREE.Group();
 scene.add(environmentGroup);
@@ -89,6 +89,163 @@ const ENV_LENGTH = 200;
 const ENV_START_Z = 10;
 const ENV_END_Z = ENV_START_Z - ENV_LENGTH;
 
+// ===============================================================
+// Helper — create a canvas texture with text on a coloured background
+// ===============================================================
+function makeSignTexture(text, bgColor = '#e0b070', textColor = '#3a1a00') {
+  const canvas = document.createElement('canvas');
+  canvas.width = 512;
+  canvas.height = 256;
+  const ctx = canvas.getContext('2d');
+
+  // Background
+  ctx.fillStyle = bgColor;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // Border
+  ctx.strokeStyle = textColor;
+  ctx.lineWidth = 12;
+  ctx.strokeRect(6, 6, canvas.width - 12, canvas.height - 12);
+
+  // Text — big, bold, centered, uppercased
+  ctx.fillStyle = textColor;
+  ctx.font = 'bold 90px Arial, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(text.toUpperCase(), canvas.width / 2, canvas.height / 2);
+
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.anisotropy = 4;
+  return tex;
+}
+
+// ===============================================================
+// Compound environment objects
+// ===============================================================
+
+// ---- Roadside signboard on a pole ----
+function makeSign(text, bgColor, textColor, side) {
+  const group = new THREE.Group();
+
+  // Wooden pole
+  const poleGeo = new THREE.CylinderGeometry(0.05, 0.06, 2.4, 6);
+  const poleMat = new THREE.MeshStandardMaterial({ color: 0x4a2a10 });
+  const pole = new THREE.Mesh(poleGeo, poleMat);
+  pole.position.y = 1.2;
+  group.add(pole);
+
+  // Signboard — a plane with the canvas texture
+  const signGeo = new THREE.PlaneGeometry(1.2, 0.6);
+  const signMat = new THREE.MeshStandardMaterial({
+    map: makeSignTexture(text, bgColor, textColor),
+    side: THREE.DoubleSide,
+  });
+  const sign = new THREE.Mesh(signGeo, signMat);
+  sign.position.y = 2.2;
+  // Face the road: side -1 (left of road) rotates 90° to face +x
+  sign.rotation.y = side === -1 ? -Math.PI / 2 : Math.PI / 2;
+  group.add(sign);
+
+  group.userData.isEnvironment = true;
+  return group;
+}
+
+// ---- Painted wall strip for buildings ----
+function makePaintedWall(width, height, side) {
+  // A colourful band along the base of buildings with a painted look
+  const group = new THREE.Group();
+
+  const wallGeo = new THREE.BoxGeometry(0.2, 1.2, width);
+  const colors = [0xd94f2b, 0x2b8d3a, 0xf2c419, 0x2b6bd9, 0xc42b80];
+  const color = colors[Math.floor(Math.random() * colors.length)];
+  const wallMat = new THREE.MeshStandardMaterial({ color });
+  const wall = new THREE.Mesh(wallGeo, wallMat);
+  wall.position.set(side * 3.6, 0.6, 0);
+  group.add(wall);
+
+  group.userData.isEnvironment = true;
+  return group;
+}
+
+// ---- Market umbrella (colourful parasol) ----
+function makeUmbrella(x, z) {
+  const group = new THREE.Group();
+
+  // Pole
+  const poleGeo = new THREE.CylinderGeometry(0.04, 0.04, 1.8, 6);
+  const poleMat = new THREE.MeshStandardMaterial({ color: 0x555555 });
+  const pole = new THREE.Mesh(poleGeo, poleMat);
+  pole.position.y = 0.9;
+  group.add(pole);
+
+  // Umbrella top — a cone
+  const umbColors = [0xd94f2b, 0x2b8d3a, 0xf2c419, 0x2b6bd9];
+  const umbColor = umbColors[Math.floor(Math.random() * umbColors.length)];
+  const umbGeo = new THREE.ConeGeometry(0.7, 0.4, 8);
+  const umbMat = new THREE.MeshStandardMaterial({ color: umbColor });
+  const umb = new THREE.Mesh(umbGeo, umbMat);
+  umb.position.y = 1.85;
+  group.add(umb);
+
+  group.position.set(x, 0, z);
+  group.userData.isEnvironment = true;
+  return group;
+}
+
+// ---- Generator (small boxy machine with exhaust pipe) ----
+function makeGenerator(x, z) {
+  const group = new THREE.Group();
+
+  // Main body — a box
+  const bodyGeo = new THREE.BoxGeometry(0.7, 0.5, 0.5);
+  const bodyMat = new THREE.MeshStandardMaterial({ color: 0x8a3a1a });
+  const body = new THREE.Mesh(bodyGeo, bodyMat);
+  body.position.y = 0.25;
+  group.add(body);
+
+  // Exhaust pipe
+  const pipeGeo = new THREE.CylinderGeometry(0.05, 0.05, 0.4, 6);
+  const pipeMat = new THREE.MeshStandardMaterial({ color: 0x333333 });
+  const pipe = new THREE.Mesh(pipeGeo, pipeMat);
+  pipe.position.set(0.25, 0.65, 0);
+  group.add(pipe);
+
+  // Handle bar on top
+  const handleGeo = new THREE.BoxGeometry(0.6, 0.04, 0.04);
+  const handleMat = new THREE.MeshStandardMaterial({ color: 0x222222 });
+  const handle = new THREE.Mesh(handleGeo, handleMat);
+  handle.position.y = 0.55;
+  group.add(handle);
+
+  group.position.set(x, 0, z);
+  group.userData.isEnvironment = true;
+  return group;
+}
+
+// ---- Rooftop water tank (black cylinder) ----
+function makeWaterTank(x, y, z) {
+  const group = new THREE.Group();
+
+  const tankGeo = new THREE.CylinderGeometry(0.35, 0.35, 0.9, 12);
+  const tankMat = new THREE.MeshStandardMaterial({ color: 0x1a1a1a });
+  const tank = new THREE.Mesh(tankGeo, tankMat);
+  group.add(tank);
+
+  // Small cap on top
+  const capGeo = new THREE.CylinderGeometry(0.1, 0.1, 0.15, 8);
+  const capMat = new THREE.MeshStandardMaterial({ color: 0x2a2a2a });
+  const cap = new THREE.Mesh(capGeo, capMat);
+  cap.position.y = 0.55;
+  group.add(cap);
+
+  group.position.set(x, y, z);
+  group.userData.isEnvironment = true;
+  return group;
+}
+
+// ===============================================================
+// SIDEWALKS
+// ===============================================================
 const sidewalkGeometry = new THREE.BoxGeometry(1.5, 0.15, ROAD_LENGTH);
 const sidewalkMaterial = new THREE.MeshStandardMaterial({ color: 0xd8c9a8 });
 [-1, 1].forEach((side) => {
@@ -97,6 +254,9 @@ const sidewalkMaterial = new THREE.MeshStandardMaterial({ color: 0xd8c9a8 });
   scene.add(sidewalk);
 });
 
+// ===============================================================
+// BUILDINGS
+// ===============================================================
 const BUILDING_COLORS = [
   0xc17a4a, 0xa8603a, 0xd9a066, 0x8c5a3c, 0xe0c088, 0x9c6a4c,
 ];
@@ -148,6 +308,28 @@ for (let side of [-1, 1]) {
     const building = makeBuilding(w, h, d, x, z, side);
     environmentGroup.add(building);
 
+    // Painted wall at the base of the building
+    if (Math.random() < 0.6) {
+      const painted = makePaintedWall(d, 1.2, side);
+      painted.position.set(
+        side * (ROAD_EDGE + 0.2),
+        0,
+        z
+      );
+      environmentGroup.add(painted);
+    }
+
+    // Rooftop water tank
+    if (Math.random() < 0.35) {
+      const tank = makeWaterTank(
+        x + (Math.random() - 0.5) * (w - 0.8),
+        h + 0.45,
+        z
+      );
+      environmentGroup.add(tank);
+    }
+
+    // Kiosk
     if (Math.random() < 0.4) {
       const kioskW = 1.2 + Math.random() * 0.6;
       const kioskH = 1.2 + Math.random() * 0.6;
@@ -161,6 +343,58 @@ for (let side of [-1, 1]) {
   }
 }
 
+// ===============================================================
+// SIGNS
+// ===============================================================
+// Nigerian roadside signs — the kind you see all over Lagos, Abuja, Kano
+const SIGN_DATA = [
+  { text: 'SUYA',          bg: '#d94f2b', fg: '#fff5dd' },
+  { text: 'BOLE',          bg: '#f2c419', fg: '#3a1a00' },
+  { text: 'OKADA',         bg: '#2b8d3a', fg: '#fff5dd' },
+  { text: 'PURE WATER',    bg: '#2b6bd9', fg: '#ffffff' },
+  { text: 'PHONE REPAIR',  bg: '#c42b80', fg: '#fff5dd' },
+  { text: 'CHOP LIFE',     bg: '#e8a020', fg: '#3a1a00' },
+  { text: 'NAIJA PRIDE',   bg: '#2b8d3a', fg: '#ffffff' },
+  { text: 'BARBING SALON', bg: '#333333', fg: '#f2c419' },
+  { text: 'COLD DRINKS',   bg: '#2b6bd9', fg: '#f2c419' },
+  { text: 'WELCOME',       bg: '#d94f2b', fg: '#fff5dd' },
+];
+
+for (let side of [-1, 1]) {
+  // Place signs at intervals along the roadside
+  for (let i = 0; i < 14; i++) {
+    const z = ENV_START_Z - i * (ENV_LENGTH / 14) - Math.random() * 4;
+    const data = SIGN_DATA[Math.floor(Math.random() * SIGN_DATA.length)];
+    const x = side * (ROAD_EDGE - 0.5);
+    const sign = makeSign(data.text, data.bg, data.fg, side);
+    sign.position.set(x, 0, z);
+    environmentGroup.add(sign);
+  }
+}
+
+// ===============================================================
+// GENERATORS — place some along the roadside
+// ===============================================================
+for (let i = 0; i < 10; i++) {
+  const side = Math.random() < 0.5 ? -1 : 1;
+  const z = ENV_START_Z - Math.random() * ENV_LENGTH;
+  const x = side * (ROAD_EDGE + 0.3);
+  environmentGroup.add(makeGenerator(x, z));
+}
+
+// ===============================================================
+// MARKET UMBRELLAS — colourful parasols
+// ===============================================================
+for (let i = 0; i < 10; i++) {
+  const side = Math.random() < 0.5 ? -1 : 1;
+  const z = ENV_START_Z - Math.random() * ENV_LENGTH;
+  const x = side * (ROAD_EDGE + 0.5 + Math.random() * 0.5);
+  environmentGroup.add(makeUmbrella(x, z));
+}
+
+// ===============================================================
+// PALM TREES
+// ===============================================================
 function makePalm(x, z) {
   const group = new THREE.Group();
 
@@ -192,6 +426,9 @@ for (let i = 0; i < 12; i++) {
   environmentGroup.add(makePalm(x, z));
 }
 
+// ===============================================================
+// LAMP POSTS
+// ===============================================================
 function makeLampPost(x, z) {
   const group = new THREE.Group();
 
@@ -230,6 +467,7 @@ for (let side of [-1, 1]) {
   }
 }
 
+// Store initial Z on every environment object for recycling
 environmentGroup.children.forEach((obj) => {
   obj.userData.initialZ = obj.position.z;
 });
@@ -291,11 +529,10 @@ const SPAWN_Z = -80;
 const DESPAWN_Z = 15;
 const SPAWN_INTERVAL = 1.3;
 
-// Sizes for each obstacle type
-const TYRE_STACK_HEIGHT = 0.85;    // total height — player must be above this
-const AWNING_BOTTOM = 1.25;        // the gap under the awning
-const AWNING_HEIGHT = 1.6;         // thickness of the awning itself
-const KEKE_HEIGHT = 2.4;           // tall — full dodge
+const TYRE_STACK_HEIGHT = 0.85;
+const AWNING_BOTTOM = 1.25;
+const AWNING_HEIGHT = 1.6;
+const KEKE_HEIGHT = 2.4;
 const KEKE_WIDTH = 1.6;
 const KEKE_DEPTH = 2.0;
 const obstacleDepth = 1.4;
@@ -526,37 +763,24 @@ loader.load(
 );
 
 // ---------------------------------------------------------------
-// 15. OBSTACLE FACTORY — Nigerian objects!
+// 15. OBSTACLE FACTORY (unchanged from previous step)
 // ---------------------------------------------------------------
-// Each obstacle is a THREE.Group containing several primitives that
-// look like a recognisable Nigerian urban object.
-//
-// All shapes use the same collision boxes as before, so the game
-// mechanics are unchanged — only the visuals have been upgraded.
-
-// ---- 1. TYRE STACK (jump over) ----
-// A pile of 4 tyres, slightly tilted, tied with rope.
-// Total height must be ≤ TYRE_STACK_HEIGHT so the player can jump it.
 function makeTyreStack() {
   const group = new THREE.Group();
 
   const tyreGeo = new THREE.TorusGeometry(0.4, 0.16, 8, 16);
   const tyreMat = new THREE.MeshStandardMaterial({ color: 0x1a1a1a });
 
-  // Stack 4 tyres, slightly offset for the "pile" look
   const count = 4;
   for (let i = 0; i < count; i++) {
     const tyre = new THREE.Mesh(tyreGeo, tyreMat);
     tyre.rotation.x = Math.PI / 2;
-    // rotate around Y for variety
     tyre.rotation.z = (i * 0.7) % (Math.PI * 2);
     tyre.position.y = 0.16 + i * 0.18;
-    // slight tilt — like a real pile
     tyre.rotation.y = (i - count / 2) * 0.08;
     group.add(tyre);
   }
 
-  // A tiny rope on top — a thin box
   const ropeGeo = new THREE.BoxGeometry(0.9, 0.02, 0.02);
   const ropeMat = new THREE.MeshStandardMaterial({ color: 0x8b6b3a });
   const rope = new THREE.Mesh(ropeGeo, ropeMat);
@@ -566,13 +790,9 @@ function makeTyreStack() {
   return group;
 }
 
-// ---- 2. MARKET STALL AWNING (slide under) ----
-// Two vertical poles + a striped roof (green/white Nigerian colors).
-// The gap under the roof must equal AWNING_BOTTOM.
 function makeAwning() {
   const group = new THREE.Group();
 
-  // Poles
   const poleGeo = new THREE.CylinderGeometry(0.06, 0.06, AWNING_BOTTOM + AWNING_HEIGHT, 6);
   const poleMat = new THREE.MeshStandardMaterial({ color: 0x5a3a1a });
   const poleLeft = new THREE.Mesh(poleGeo, poleMat);
@@ -583,12 +803,11 @@ function makeAwning() {
   poleRight.position.set(0.75, (AWNING_BOTTOM + AWNING_HEIGHT) / 2, 0);
   group.add(poleRight);
 
-  // Striped roof — 6 alternating green/white strips
   const stripWidth = 1.7 / 6;
   for (let i = 0; i < 6; i++) {
     const stripGeo = new THREE.BoxGeometry(stripWidth, 0.1, 1.0);
     const stripMat = new THREE.MeshStandardMaterial({
-      color: i % 2 === 0 ? 0x0b8c3a : 0xf5f5f5, // green / white
+      color: i % 2 === 0 ? 0x0b8c3a : 0xf5f5f5,
     });
     const strip = new THREE.Mesh(stripGeo, stripMat);
     strip.position.set(-0.85 + stripWidth / 2 + i * stripWidth,
@@ -596,7 +815,6 @@ function makeAwning() {
     group.add(strip);
   }
 
-  // Small hanging sign — a small dark box on the left
   const signGeo = new THREE.BoxGeometry(0.4, 0.3, 0.05);
   const signMat = new THREE.MeshStandardMaterial({ color: 0xe0b070 });
   const sign = new THREE.Mesh(signGeo, signMat);
@@ -606,22 +824,17 @@ function makeAwning() {
   return group;
 }
 
-// ---- 3. KEKE NAPEP (dodge sideways) ----
-// A yellow tricycle — box body, rounded top, wheels, windshield.
-// Must be tall enough to block a jump.
 function makeKekeNapep() {
   const group = new THREE.Group();
 
-  const bodyColor = 0xf2c419; // keke yellow
+  const bodyColor = 0xf2c419;
 
-  // Main body
   const bodyGeo = new THREE.BoxGeometry(KEKE_WIDTH, 1.5, KEKE_DEPTH);
   const bodyMat = new THREE.MeshStandardMaterial({ color: bodyColor });
   const body = new THREE.Mesh(bodyGeo, bodyMat);
   body.position.y = 0.9;
   group.add(body);
 
-  // Rounded roof — using a thin box, rotated a bit (or a squashed sphere)
   const roofGeo = new THREE.SphereGeometry(0.85, 12, 8);
   const roofMat = new THREE.MeshStandardMaterial({ color: 0xf7d23c });
   const roof = new THREE.Mesh(roofGeo, roofMat);
@@ -629,7 +842,6 @@ function makeKekeNapep() {
   roof.position.y = 1.65;
   group.add(roof);
 
-  // Windshield — dark blue tinted box
   const glassGeo = new THREE.BoxGeometry(KEKE_WIDTH * 0.85, 0.6, 0.05);
   const glassMat = new THREE.MeshStandardMaterial({
     color: 0x1a2a4a,
@@ -640,22 +852,18 @@ function makeKekeNapep() {
   glass.position.set(0, 1.15, KEKE_DEPTH / 2 - 0.02);
   group.add(glass);
 
-  // Rear windshield
   const glassBack = new THREE.Mesh(glassGeo, glassMat);
   glassBack.position.set(0, 1.15, -KEKE_DEPTH / 2 + 0.02);
   group.add(glassBack);
 
-  // Wheels — 3 wheels (front single, rear pair like a real keke)
   const wheelGeo = new THREE.CylinderGeometry(0.28, 0.28, 0.15, 12);
   const wheelMat = new THREE.MeshStandardMaterial({ color: 0x111111 });
 
-  // Front wheel
   const wf = new THREE.Mesh(wheelGeo, wheelMat);
   wf.rotation.z = Math.PI / 2;
   wf.position.set(0, 0.28, KEKE_DEPTH / 2 - 0.3);
   group.add(wf);
 
-  // Rear wheels
   const wl = new THREE.Mesh(wheelGeo, wheelMat);
   wl.rotation.z = Math.PI / 2;
   wl.position.set(-KEKE_WIDTH / 2 + 0.1, 0.28, -KEKE_DEPTH / 2 + 0.3);
@@ -669,18 +877,14 @@ function makeKekeNapep() {
   return group;
 }
 
-// ---- Factory ----
 function makeObstacleMesh(type) {
   let group;
 
   if (type === 'low') {
-    // Tyre stack
     group = makeTyreStack();
   } else if (type === 'high') {
-    // Market stall awning
     group = makeAwning();
   } else {
-    // Keke napep
     group = makeKekeNapep();
   }
 
@@ -869,15 +1073,12 @@ function checkObstacleCollisions() {
     let hit = false;
 
     if (o.userData.type === 'low') {
-      // Tyre stack — must be above the top of the stack
       const top = TYRE_STACK_HEIGHT;
       if (playerBottom < top) hit = true;
     } else if (o.userData.type === 'high') {
-      // Awning — must be below AWNING_BOTTOM
       const bottom = AWNING_BOTTOM;
       if (playerTop > bottom) hit = true;
     } else {
-      // Keke napep — always a hit if in same lane and same Z range
       hit = true;
     }
 
