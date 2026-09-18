@@ -114,12 +114,13 @@ html, body {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 16px;
+  gap: 14px;
   z-index: 20;
   padding: 24px;
   text-align: center;
   background: rgba(20, 12, 5, 0.85);
   backdrop-filter: blur(4px);
+  overflow-y: auto;
 }
 
 .overlay.hidden {
@@ -184,16 +185,6 @@ html, body {
   margin-top: 4px;
 }
 
-/* ---------- Developer credit (kept for reference, not used now) ---------- */
-.developed-credit {
-  color: #ffcb6b;
-  font-size: 16px;
-  font-weight: bold;
-  letter-spacing: 1.5px;
-  margin-top: 40px;
-  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.9);
-}
-
 /* ---------- Buttons ---------- */
 .big-btn {
   padding: 18px 56px;
@@ -242,17 +233,17 @@ html, body {
   justify-content: space-between;
   gap: 24px;
   width: 280px;
-  padding: 12px 20px;
+  padding: 10px 20px;
   background: rgba(255, 255, 255, 0.06);
   border-radius: 12px;
   color: #ffffff;
-  font-size: 18px;
+  font-size: 17px;
   font-weight: bold;
 }
 
 .toggle-btn {
   padding: 8px 20px;
-  font-size: 16px;
+  font-size: 15px;
   font-weight: bold;
   border: none;
   border-radius: 8px;
