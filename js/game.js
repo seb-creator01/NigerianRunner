@@ -33,7 +33,13 @@ renderer.shadowMap.enabled = false;
 // ---------------------------------------------------------------
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0xf5c98a);
-scene.fog = new THREE.Fog(0xf5c98a, 35, 70);
+
+const OPEN_FOG_NEAR = 35;
+const OPEN_FOG_FAR = 70;
+const TUNNEL_FOG_NEAR = 12;
+const TUNNEL_FOG_FAR = 45;
+
+scene.fog = new THREE.Fog(0xf5c98a, OPEN_FOG_NEAR, OPEN_FOG_FAR);
 
 // ---------------------------------------------------------------
 // 3. CAMERA
@@ -78,7 +84,9 @@ composer.addPass(fxaaPass);
 // ---------------------------------------------------------------
 // 4. LIGHTING
 // ---------------------------------------------------------------
-scene.add(new THREE.AmbientLight(0xffe8c0, 0.9));
+const ambientLight = new THREE.AmbientLight(0xffe8c0, 0.9);
+scene.add(ambientLight);
+
 const sunLight = new THREE.DirectionalLight(0xfff1d0, 1.1);
 sunLight.position.set(5, 10, 5);
 scene.add(sunLight);
@@ -196,7 +204,7 @@ const SECTION_COUNT = 3;
 
 const sections = [];
 
-const SECTION_TYPES = ['city'];
+const SECTION_TYPES = ['city', 'tunnel'];
 let currentSectionType = 'city';
 
 const BUILDING_COLORS = [
@@ -414,6 +422,98 @@ function buildPaintedWall(width, x, z) {
   return group;
 }
 
+// ---------- Tunnel object builders ----------
+function buildTunnelWall(side, centerZ) {
+  const group = new THREE.Group();
+
+  const wallHeight = 4.5;
+  const wallThickness = 0.5;
+  const wallX = side * (ROAD_WIDTH / 2 + 1.5);
+
+  const wallGeo = new THREE.BoxGeometry(
+    wallThickness,
+    wallHeight,
+    SECTION_LENGTH
+  );
+  const wallMat = new THREE.MeshStandardMaterial({
+    color: 0x6b6256,
+    roughness: 0.95,
+  });
+  const wall = new THREE.Mesh(wallGeo, wallMat);
+  wall.position.set(wallX, wallHeight / 2, centerZ);
+  group.add(wall);
+
+  const panelCount = 5;
+  for (let i = 0; i < panelCount; i++) {
+    const panelZ = centerZ + SECTION_LENGTH / 2 - (i + 0.5) * (SECTION_LENGTH / panelCount);
+    const panelGeo = new THREE.BoxGeometry(0.05, wallHeight * 0.85, SECTION_LENGTH / panelCount - 0.3);
+    const panelMat = new THREE.MeshStandardMaterial({
+      color: 0x554d42,
+      roughness: 0.9,
+    });
+    const panel = new THREE.Mesh(panelGeo, panelMat);
+    panel.position.set(
+      side * (ROAD_WIDTH / 2 + 1.5 - wallThickness / 2 - 0.03),
+      wallHeight / 2,
+      panelZ
+    );
+    group.add(panel);
+  }
+
+  return group;
+}
+
+function buildTunnelRoof(centerZ) {
+  const group = new THREE.Group();
+
+  const radius = ROAD_WIDTH / 2 + 1.5;
+  const roofGeo = new THREE.CylinderGeometry(
+    radius,
+    radius,
+    SECTION_LENGTH,
+    16,
+    1,
+    true,
+    Math.PI * 0.15,
+    Math.PI * 0.7
+  );
+  const roofMat = new THREE.MeshStandardMaterial({
+    color: 0x4a4038,
+    roughness: 0.95,
+    side: THREE.DoubleSide,
+  });
+  const roof = new THREE.Mesh(roofGeo, roofMat);
+  roof.rotation.x = Math.PI / 2;
+  roof.position.set(0, 3.5, centerZ);
+  group.add(roof);
+
+  return group;
+}
+
+function buildTunnelLights(side, centerZ) {
+  const group = new THREE.Group();
+
+  const lightCount = 6;
+  const wallX = side * (ROAD_WIDTH / 2 + 1.4);
+
+  for (let i = 0; i < lightCount; i++) {
+    const lightZ = centerZ + SECTION_LENGTH / 2
+                 - (i + 0.5) * (SECTION_LENGTH / lightCount);
+
+    const lightGeo = new THREE.BoxGeometry(0.15, 0.15, 0.5);
+    const lightMat = new THREE.MeshStandardMaterial({
+      color: 0xfff0a0,
+      emissive: 0xffd060,
+      emissiveIntensity: 3.0,
+    });
+    const light = new THREE.Mesh(lightGeo, lightMat);
+    light.position.set(wallX, 3.0, lightZ);
+    group.add(light);
+  }
+
+  return group;
+}
+
 const SIGN_DATA = [
   { text: 'SUYA',          bg: '#d94f2b', fg: '#fff5dd' },
   { text: 'BOLE',          bg: '#f2c419', fg: '#3a1a00' },
@@ -496,6 +596,12 @@ function populateSection(sectionGroup, type, centerZ) {
         sectionGroup.add(buildUmbrella(x, z));
       }
     }
+  } else if (type === 'tunnel') {
+    sectionGroup.add(buildTunnelWall(-1, centerZ));
+    sectionGroup.add(buildTunnelWall(1, centerZ));
+    sectionGroup.add(buildTunnelRoof(centerZ));
+    sectionGroup.add(buildTunnelLights(-1, centerZ));
+    sectionGroup.add(buildTunnelLights(1, centerZ));
   }
 }
 
@@ -515,8 +621,31 @@ function initializeSections() {
 
   for (let i = 0; i < SECTION_COUNT; i++) {
     const centerZ = SECTION_LENGTH - i * SECTION_LENGTH;
-    const type = SECTION_TYPES[Math.floor(Math.random() * SECTION_TYPES.length)];
+    const type = i === 0
+      ? 'city'
+      : SECTION_TYPES[Math.floor(Math.random() * SECTION_TYPES.length)];
     createSection(centerZ, type);
+  }
+
+  applyFogForType('city');
+  currentSectionType = 'city';
+}
+
+function applyFogForType(type) {
+  if (type === 'tunnel') {
+    scene.fog.near = TUNNEL_FOG_NEAR;
+    scene.fog.far = TUNNEL_FOG_FAR;
+    scene.fog.color.setHex(0x1a1208);
+    scene.background = new THREE.Color(0x1a1208);
+    ambientLight.intensity = 0.4;
+    sunLight.intensity = 0.15;
+  } else {
+    scene.fog.near = OPEN_FOG_NEAR;
+    scene.fog.far = OPEN_FOG_FAR;
+    scene.fog.color.setHex(0xf5c98a);
+    scene.background = new THREE.Color(0xf5c98a);
+    ambientLight.intensity = 0.9;
+    sunLight.intensity = 1.1;
   }
 }
 
@@ -529,8 +658,12 @@ function updateSections(effectiveSpeed, delta) {
 
   const recycleThreshold = SECTION_LENGTH / 2 + SECTION_LENGTH;
 
+  let nearestType = 'city';
+  let nearestZ = Infinity;
+
   for (let i = 0; i < sections.length; i++) {
     const section = sections[i];
+
     if (section.position.z > recycleThreshold) {
       const newType = SECTION_TYPES[Math.floor(Math.random() * SECTION_TYPES.length)];
 
@@ -544,8 +677,18 @@ function updateSections(effectiveSpeed, delta) {
       section.position.z = newCenterZ;
       section.userData.type = newType;
       populateSection(section, newType, newCenterZ);
-      currentSectionType = newType;
     }
+
+    const distToCamera = Math.abs(section.position.z);
+    if (distToCamera < nearestZ) {
+      nearestZ = distToCamera;
+      nearestType = section.userData.type;
+    }
+  }
+
+  if (nearestType !== currentSectionType) {
+    currentSectionType = nearestType;
+    applyFogForType(nearestType);
   }
 }
 
