@@ -94,6 +94,9 @@ scene.add(sunLight);
 // ---------------------------------------------------------------
 // 5. LANES
 // ---------------------------------------------------------------
+// During a fork, the player is on one of two paths. The lane
+// indices are reused: lane 0 = far left, lane 2 = far right.
+// When entering a fork, lane 0 = "left path" and lane 2 = "right path".
 const LANE_X = [-2, 0, 2];
 const STARTING_LANE = 1;
 
@@ -199,13 +202,25 @@ const barrierCapMat = new THREE.MeshStandardMaterial({
 // ---------------------------------------------------------------
 // 6b. SECTION SYSTEM
 // ---------------------------------------------------------------
-const SECTION_LENGTH = 60;
+const SECTION_LENGTH = 100;
 const SECTION_COUNT = 3;
 
 const sections = [];
 
+// Section types. 'fork' is a special type that shows a choice.
 const SECTION_TYPES = ['city', 'tunnel'];
 let currentSectionType = 'city';
+let lastSectionType = 'city';
+
+// How many sections between forks
+const SECTIONS_BETWEEN_FORKS = 3;
+let sectionsSinceLastFork = 0;
+
+// Fork state — when the player is at a fork section
+let forkActive = false;          // is the current nearest section a fork?
+let forkResolved = false;        // has the player already chosen?
+let forkChoice = null;           // 'left' (tunnel) or 'right' (city)
+let forkPendingNextType = null;  // what the next section should be
 
 const BUILDING_COLORS = [
   0xc17a4a, 0xa8603a, 0xd9a066, 0x8c5a3c, 0xe0c088, 0x9c6a4c,
@@ -422,8 +437,8 @@ function buildPaintedWall(width, x, z) {
   return group;
 }
 
-// ---------- Tunnel object builders ----------
-function buildTunnelWall(side, centerZ) {
+// ---------- Tunnel object builders (with length parameter) ----------
+function buildTunnelWall(side, centerZ, length) {
   const group = new THREE.Group();
 
   const wallHeight = 4.5;
@@ -433,7 +448,7 @@ function buildTunnelWall(side, centerZ) {
   const wallGeo = new THREE.BoxGeometry(
     wallThickness,
     wallHeight,
-    SECTION_LENGTH
+    length
   );
   const wallMat = new THREE.MeshStandardMaterial({
     color: 0x6b6256,
@@ -443,10 +458,10 @@ function buildTunnelWall(side, centerZ) {
   wall.position.set(wallX, wallHeight / 2, centerZ);
   group.add(wall);
 
-  const panelCount = 5;
+  const panelCount = Math.max(3, Math.floor(length / 12));
   for (let i = 0; i < panelCount; i++) {
-    const panelZ = centerZ + SECTION_LENGTH / 2 - (i + 0.5) * (SECTION_LENGTH / panelCount);
-    const panelGeo = new THREE.BoxGeometry(0.05, wallHeight * 0.85, SECTION_LENGTH / panelCount - 0.3);
+    const panelZ = centerZ + length / 2 - (i + 0.5) * (length / panelCount);
+    const panelGeo = new THREE.BoxGeometry(0.05, wallHeight * 0.85, length / panelCount - 0.3);
     const panelMat = new THREE.MeshStandardMaterial({
       color: 0x554d42,
       roughness: 0.9,
@@ -463,14 +478,14 @@ function buildTunnelWall(side, centerZ) {
   return group;
 }
 
-function buildTunnelRoof(centerZ) {
+function buildTunnelRoof(centerZ, length) {
   const group = new THREE.Group();
 
   const radius = ROAD_WIDTH / 2 + 1.5;
   const roofGeo = new THREE.CylinderGeometry(
     radius,
     radius,
-    SECTION_LENGTH,
+    length,
     16,
     1,
     true,
@@ -490,15 +505,15 @@ function buildTunnelRoof(centerZ) {
   return group;
 }
 
-function buildTunnelLights(side, centerZ) {
+function buildTunnelLights(side, centerZ, length) {
   const group = new THREE.Group();
 
-  const lightCount = 6;
+  const lightCount = Math.max(4, Math.floor(length / 12));
   const wallX = side * (ROAD_WIDTH / 2 + 1.4);
 
   for (let i = 0; i < lightCount; i++) {
-    const lightZ = centerZ + SECTION_LENGTH / 2
-                 - (i + 0.5) * (SECTION_LENGTH / lightCount);
+    const lightZ = centerZ + length / 2
+                 - (i + 0.5) * (length / lightCount);
 
     const lightGeo = new THREE.BoxGeometry(0.15, 0.15, 0.5);
     const lightMat = new THREE.MeshStandardMaterial({
@@ -510,6 +525,79 @@ function buildTunnelLights(side, centerZ) {
     light.position.set(wallX, 3.0, lightZ);
     group.add(light);
   }
+
+  return group;
+}
+
+// ---------- FORK object builders ----------
+
+// The left-side tunnel entrance (a decorative "gateway" to the left path)
+function buildForkTunnelEntrance(centerZ) {
+  const group = new THREE.Group();
+
+  const radius = ROAD_WIDTH / 2 + 1.5;
+  const archGeo = new THREE.TorusGeometry(radius * 0.8, 0.2, 8, 16, Math.PI);
+  const archMat = new THREE.MeshStandardMaterial({
+    color: 0x3a3028,
+    roughness: 0.9,
+  });
+  const arch = new THREE.Mesh(archGeo, archMat);
+  arch.position.set(-3, 1.0, centerZ);
+  arch.rotation.z = 0;
+  group.add(arch);
+
+  // Bright warning frame around it
+  const frameGeo = new THREE.BoxGeometry(3.5, 0.15, 0.15);
+  const frameMat = new THREE.MeshStandardMaterial({
+    color: 0xffdd44,
+    emissive: 0xffaa00,
+    emissiveIntensity: 2.0,
+  });
+  const frameTop = new THREE.Mesh(frameGeo, frameMat);
+  frameTop.position.set(-3, 3.6, centerZ);
+  group.add(frameTop);
+
+  return group;
+}
+
+// A glowing directional arrow — we use simple boxes to fake an arrow
+function buildArrow(x, y, z, color, pointRight) {
+  const group = new THREE.Group();
+
+  const mat = new THREE.MeshStandardMaterial({
+    color: color,
+    emissive: color,
+    emissiveIntensity: 1.5,
+  });
+
+  const shaftGeo = new THREE.BoxGeometry(0.9, 0.12, 0.12);
+  const shaft = new THREE.Mesh(shaftGeo, mat);
+  shaft.position.set(x, y, z);
+  group.add(shaft);
+
+  const headGeo = new THREE.BoxGeometry(0.3, 0.4, 0.12);
+  const head = new THREE.Mesh(headGeo, mat);
+  head.position.set(x + (pointRight ? 0.6 : -0.6), y, z);
+  head.rotation.z = pointRight ? -0.6 : 0.6;
+  group.add(head);
+
+  return group;
+}
+
+// A vertical sign board with a message (SUYA-style but for direction)
+function buildDirectionSign(x, y, z, text, bgColor, fgColor) {
+  const group = new THREE.Group();
+
+  const signGeo = new THREE.PlaneGeometry(1.8, 0.7);
+  const signMat = new THREE.MeshStandardMaterial({
+    map: makeSignTexture(text, bgColor, fgColor),
+    side: THREE.DoubleSide,
+    emissive: 0x221100,
+    emissiveIntensity: 0.4,
+  });
+  const sign = new THREE.Mesh(signGeo, signMat);
+  sign.position.set(x, y, z);
+  group.add(sign);
 
   return group;
 }
@@ -597,11 +685,45 @@ function populateSection(sectionGroup, type, centerZ) {
       }
     }
   } else if (type === 'tunnel') {
-    sectionGroup.add(buildTunnelWall(-1, centerZ));
-    sectionGroup.add(buildTunnelWall(1, centerZ));
-    sectionGroup.add(buildTunnelRoof(centerZ));
-    sectionGroup.add(buildTunnelLights(-1, centerZ));
-    sectionGroup.add(buildTunnelLights(1, centerZ));
+    const tunnelFront = centerZ + half * 0.15;
+    const tunnelBack = centerZ - half;
+    const tunnelLength = tunnelFront - tunnelBack;
+    const tunnelCenter = (tunnelFront + tunnelBack) / 2;
+
+    sectionGroup.add(buildTunnelWall(-1, tunnelCenter, tunnelLength));
+    sectionGroup.add(buildTunnelWall(1, tunnelCenter, tunnelLength));
+    sectionGroup.add(buildTunnelRoof(tunnelCenter, tunnelLength));
+    sectionGroup.add(buildTunnelLights(-1, tunnelCenter, tunnelLength));
+    sectionGroup.add(buildTunnelLights(1, tunnelCenter, tunnelLength));
+  } else if (type === 'fork') {
+    // A fork shows the player a choice. The road splits visually
+    // with arrows and signage. The player chooses by moving to the
+    // leftmost lane (tunnel) or the rightmost lane (city).
+
+    // Direction signs floating above each path
+    sectionGroup.add(
+      buildDirectionSign(-3.5, 3.0, centerZ, 'TUNNEL', '#2b2b2b', '#ffee88')
+    );
+    sectionGroup.add(
+      buildDirectionSign(3.5, 3.0, centerZ, 'CITY', '#2b8d3a', '#ffffff')
+    );
+
+    // Big glowing arrows on the road
+    sectionGroup.add(buildArrow(-3.5, 0.3, centerZ - 4, 0xffdd44, false));
+    sectionGroup.add(buildArrow(3.5, 0.3, centerZ - 4, 0x55dd88, true));
+
+    // A "TUNNEL" entrance visual on the left
+    sectionGroup.add(buildForkTunnelEntrance(centerZ - 20));
+
+    // Simple city buildings on the right to hint the choice
+    for (let i = 0; i < 3; i++) {
+      const z = centerZ + half - 5 - i * 8;
+      sectionGroup.add(buildBuilding(3 + Math.random() * 1.5, 3 + Math.random() * 2, 3, 7.5, z, 1));
+    }
+
+    // A few palms on both far sides for balance
+    sectionGroup.add(buildPalm(-7.5, centerZ + 5));
+    sectionGroup.add(buildPalm(7.5, centerZ + 5));
   }
 }
 
@@ -619,34 +741,60 @@ function initializeSections() {
   sections.forEach((s) => scene.remove(s));
   sections.length = 0;
 
-  for (let i = 0; i < SECTION_COUNT; i++) {
-    const centerZ = SECTION_LENGTH - i * SECTION_LENGTH;
-    const type = i === 0
-      ? 'city'
-      : SECTION_TYPES[Math.floor(Math.random() * SECTION_TYPES.length)];
-    createSection(centerZ, type);
-  }
+  // Always start with city for the first section
+  createSection(SECTION_LENGTH, 'city');
+  createSection(0, 'city');
+  createSection(-SECTION_LENGTH, 'city');
+
+  // Reset fork state
+  forkActive = false;
+  forkResolved = false;
+  forkChoice = null;
+  forkPendingNextType = null;
+  sectionsSinceLastFork = 0;
+  lastSectionType = 'city';
 
   applyFogForType('city');
   currentSectionType = 'city';
 }
 
+// Fog transition targets
+let targetFogNear = OPEN_FOG_NEAR;
+let targetFogFar = OPEN_FOG_FAR;
+let targetFogColor = 0xf5c98a;
+let targetBgColor = 0xf5c98a;
+let targetAmbient = 0.9;
+let targetSun = 1.1;
+
 function applyFogForType(type) {
   if (type === 'tunnel') {
-    scene.fog.near = TUNNEL_FOG_NEAR;
-    scene.fog.far = TUNNEL_FOG_FAR;
-    scene.fog.color.setHex(0x1a1208);
-    scene.background = new THREE.Color(0x1a1208);
-    ambientLight.intensity = 0.4;
-    sunLight.intensity = 0.15;
+    targetFogNear = TUNNEL_FOG_NEAR;
+    targetFogFar = TUNNEL_FOG_FAR;
+    targetFogColor = 0x1a1208;
+    targetBgColor = 0x1a1208;
+    targetAmbient = 0.4;
+    targetSun = 0.15;
   } else {
-    scene.fog.near = OPEN_FOG_NEAR;
-    scene.fog.far = OPEN_FOG_FAR;
-    scene.fog.color.setHex(0xf5c98a);
-    scene.background = new THREE.Color(0xf5c98a);
-    ambientLight.intensity = 0.9;
-    sunLight.intensity = 1.1;
+    targetFogNear = OPEN_FOG_NEAR;
+    targetFogFar = OPEN_FOG_FAR;
+    targetFogColor = 0xf5c98a;
+    targetBgColor = 0xf5c98a;
+    targetAmbient = 0.9;
+    targetSun = 1.1;
   }
+}
+
+function updateFogTransition(delta) {
+  const t = Math.min(1, delta * 4);
+
+  scene.fog.near += (targetFogNear - scene.fog.near) * t;
+  scene.fog.far += (targetFogFar - scene.fog.far) * t;
+
+  scene.fog.color.lerp(new THREE.Color(targetFogColor), t);
+  scene.background.lerp(new THREE.Color(targetBgColor), t);
+
+  ambientLight.intensity += (targetAmbient - ambientLight.intensity) * t;
+  sunLight.intensity += (targetSun - sunLight.intensity) * t;
 }
 
 function updateSections(effectiveSpeed, delta) {
@@ -665,7 +813,28 @@ function updateSections(effectiveSpeed, delta) {
     const section = sections[i];
 
     if (section.position.z > recycleThreshold) {
-      const newType = SECTION_TYPES[Math.floor(Math.random() * SECTION_TYPES.length)];
+      // Section is far enough back — recycle it to the front.
+      // Decide what type it becomes:
+      // - If we just resolved a fork, use the pending type
+      // - Otherwise, count toward the next fork
+      let newType;
+
+      if (forkPendingNextType) {
+        newType = forkPendingNextType;
+        forkPendingNextType = null;
+        sectionsSinceLastFork = 0;
+      } else {
+        sectionsSinceLastFork++;
+        if (sectionsSinceLastFork >= SECTIONS_BETWEEN_FORKS) {
+          newType = 'fork';
+        } else {
+          newType = SECTION_TYPES[Math.floor(Math.random() * SECTION_TYPES.length)];
+          if (SECTION_TYPES.length > 1 && newType === lastSectionType) {
+            newType = SECTION_TYPES[Math.floor(Math.random() * SECTION_TYPES.length)];
+          }
+        }
+      }
+      lastSectionType = newType;
 
       let minCenter = Infinity;
       sections.forEach((s) => {
@@ -686,9 +855,22 @@ function updateSections(effectiveSpeed, delta) {
     }
   }
 
-  if (nearestType !== currentSectionType) {
-    currentSectionType = nearestType;
-    applyFogForType(nearestType);
+  // Detect entering/leaving a fork section
+  const wasFork = forkActive;
+  const isFork = nearestType === 'fork';
+  forkActive = isFork;
+
+  if (isFork && !wasFork) {
+    // We just entered a fork — reset resolution
+    forkResolved = false;
+    forkChoice = null;
+  }
+
+  // Fog based on the section type (fork uses open air)
+  const fogType = (nearestType === 'tunnel') ? 'tunnel' : 'city';
+  if (fogType !== currentSectionType) {
+    currentSectionType = fogType;
+    applyFogForType(fogType);
   }
 }
 
@@ -1335,6 +1517,9 @@ function makeObstacleMesh(type) {
 
 function spawnObstacleRow() {
   if (activePowerups.speed > 0) return;
+  // Don't spawn obstacles during a fork — it's a moment for the player
+  // to decide, not to dodge.
+  if (forkActive) return;
 
   const lanes = [0, 1, 2];
   const blockedCount = Math.random() < 0.6 ? 1 : 2;
@@ -1474,13 +1659,34 @@ function moveLane(direction) {
   if (gameState !== 'playing') return;
   if (direction === 'left' && currentLane > 0) {
     currentLane -= 1;
+    // If we're in a fork and player moved to lane 0, choose tunnel
+    if (forkActive && !forkResolved && currentLane === 0) {
+      resolveFork('left');
+    }
     flashHud('Lane ' + (currentLane + 1) + ' 👈');
     playSound('whoosh');
   } else if (direction === 'right' && currentLane < 2) {
     currentLane += 1;
+    // If we're in a fork and player moved to lane 2, choose city
+    if (forkActive && !forkResolved && currentLane === 2) {
+      resolveFork('right');
+    }
     flashHud('Lane ' + (currentLane + 1) + ' 👉');
     playSound('whoosh');
   }
+}
+
+function resolveFork(side) {
+  forkResolved = true;
+  forkChoice = side;
+  if (side === 'left') {
+    forkPendingNextType = 'tunnel';
+    flashHud('🚇 To the TUNNEL!');
+  } else {
+    forkPendingNextType = 'city';
+    flashHud('🏙️ Staying in the CITY!');
+  }
+  playSound('powerup');
 }
 
 // ---------------------------------------------------------------
@@ -1996,6 +2202,7 @@ function animate() {
     });
 
     updateSections(effectiveSpeed, delta);
+    updateFogTransition(delta);
 
     runTime += delta;
     worldSpeed = Math.min(
@@ -2148,11 +2355,15 @@ function animate() {
     checkPowerupPickups();
   }
 
+  const forkLabel = forkActive
+    ? (forkResolved ? 'fork(' + forkChoice + ')' : 'fork(!)')
+    : currentSectionType;
+
   debug.textContent =
     'state: ' + gameState +
     ' | L' + speedLevel +
     ' | spd: ' + worldSpeed.toFixed(1) +
-    ' | ' + currentSectionType +
+    ' | ' + forkLabel +
     ' | ' + (characterModel ? 'model✓' : 'box');
 
   if (gfxEnabled || bloomEnabled) {
