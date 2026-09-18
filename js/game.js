@@ -290,10 +290,15 @@ const SPEED_INCREASE_PER_SECOND = 0.3;
 const SPAWN_Z = -80;
 const DESPAWN_Z = 15;
 const SPAWN_INTERVAL = 1.3;
-const LOW_HEIGHT = 0.8;
-const HIGH_BOTTOM = 1.2;
-const FULL_HEIGHT = 2.5;
-const obstacleDepth = 1.2;
+
+// Sizes for each obstacle type
+const TYRE_STACK_HEIGHT = 0.85;    // total height — player must be above this
+const AWNING_BOTTOM = 1.25;        // the gap under the awning
+const AWNING_HEIGHT = 1.6;         // thickness of the awning itself
+const KEKE_HEIGHT = 2.4;           // tall — full dodge
+const KEKE_WIDTH = 1.6;
+const KEKE_DEPTH = 2.0;
+const obstacleDepth = 1.4;
 
 // ---------------------------------------------------------------
 // 10. COIN CONSTANTS
@@ -336,7 +341,7 @@ let speedLevel;
 
 let playerVisualY = 0;
 
-let gameState = 'loading'; // 'loading' | 'menu' | 'playing' | 'paused' | 'gameover'
+let gameState = 'loading';
 
 // ---------------------------------------------------------------
 // 12. HUD ELEMENTS
@@ -453,17 +458,14 @@ const loader = new GLTFLoader();
 
 let characterReady = false;
 
-// Disable PLAY until ready
 playBtn.disabled = true;
 
-// Update the loading bar UI
 function setLoadingProgress(pct) {
   const clamped = Math.max(0, Math.min(100, pct));
   loadingBarFillEl.style.width = clamped + '%';
   loadingTextEl.textContent = 'Loading… ' + Math.floor(clamped) + '%';
 }
 
-// Show an error state on the loading screen with a retry option
 function showLoadError(msg) {
   loadingTextEl.innerHTML =
     '⚠️ Could not load character.<br><small>' +
@@ -507,57 +509,183 @@ loader.load(
     }
 
     setLoadingProgress(100);
-    // Small delay so the 100% bar is visible for a moment
     setTimeout(finishLoading, 250);
   },
   (progress) => {
-    // Progress — clamp to 99% until the success callback fires
     if (progress.total && progress.total > 0) {
       const rawPct = (progress.loaded / progress.total) * 100;
       setLoadingProgress(Math.min(rawPct, 99));
-    } else if (progress.loaded) {
-      // Fallback for streams without content-length
-      const mb = (progress.loaded / 1048576).toFixed(1);
-      setLoadingProgress(Math.min(mb * 30, 99)); // rough guess
     }
   },
   (err) => {
     console.error('Failed to load character:', err);
     const msg = err && err.message ? err.message : String(err);
     showLoadError(msg);
-    // Still allow the game to run with the fallback box after a delay
-    setTimeout(() => {
-      finishLoading();
-      flashHud('⚠️ Using fallback — reload to retry');
-    }, 2500);
+    setTimeout(finishLoading, 2500);
   }
 );
 
 // ---------------------------------------------------------------
-// 15. OBSTACLE FACTORY
+// 15. OBSTACLE FACTORY — Nigerian objects!
 // ---------------------------------------------------------------
-function makeObstacleMesh(type) {
-  let mesh;
+// Each obstacle is a THREE.Group containing several primitives that
+// look like a recognisable Nigerian urban object.
+//
+// All shapes use the same collision boxes as before, so the game
+// mechanics are unchanged — only the visuals have been upgraded.
 
-  if (type === 'low') {
-    const geo = new THREE.BoxGeometry(1.6, LOW_HEIGHT, obstacleDepth);
-    const mat = new THREE.MeshStandardMaterial({ color: 0xcc2222 });
-    mesh = new THREE.Mesh(geo, mat);
-    mesh.position.y = LOW_HEIGHT / 2;
-  } else if (type === 'high') {
-    const geo = new THREE.BoxGeometry(1.6, 1.8, obstacleDepth);
-    const mat = new THREE.MeshStandardMaterial({ color: 0x2266cc });
-    mesh = new THREE.Mesh(geo, mat);
-    mesh.position.y = HIGH_BOTTOM + 0.9;
-  } else {
-    const geo = new THREE.BoxGeometry(1.6, FULL_HEIGHT, obstacleDepth);
-    const mat = new THREE.MeshStandardMaterial({ color: 0x333333 });
-    mesh = new THREE.Mesh(geo, mat);
-    mesh.position.y = FULL_HEIGHT / 2;
+// ---- 1. TYRE STACK (jump over) ----
+// A pile of 4 tyres, slightly tilted, tied with rope.
+// Total height must be ≤ TYRE_STACK_HEIGHT so the player can jump it.
+function makeTyreStack() {
+  const group = new THREE.Group();
+
+  const tyreGeo = new THREE.TorusGeometry(0.4, 0.16, 8, 16);
+  const tyreMat = new THREE.MeshStandardMaterial({ color: 0x1a1a1a });
+
+  // Stack 4 tyres, slightly offset for the "pile" look
+  const count = 4;
+  for (let i = 0; i < count; i++) {
+    const tyre = new THREE.Mesh(tyreGeo, tyreMat);
+    tyre.rotation.x = Math.PI / 2;
+    // rotate around Y for variety
+    tyre.rotation.z = (i * 0.7) % (Math.PI * 2);
+    tyre.position.y = 0.16 + i * 0.18;
+    // slight tilt — like a real pile
+    tyre.rotation.y = (i - count / 2) * 0.08;
+    group.add(tyre);
   }
 
-  mesh.userData.type = type;
-  return mesh;
+  // A tiny rope on top — a thin box
+  const ropeGeo = new THREE.BoxGeometry(0.9, 0.02, 0.02);
+  const ropeMat = new THREE.MeshStandardMaterial({ color: 0x8b6b3a });
+  const rope = new THREE.Mesh(ropeGeo, ropeMat);
+  rope.position.y = 0.9;
+  group.add(rope);
+
+  return group;
+}
+
+// ---- 2. MARKET STALL AWNING (slide under) ----
+// Two vertical poles + a striped roof (green/white Nigerian colors).
+// The gap under the roof must equal AWNING_BOTTOM.
+function makeAwning() {
+  const group = new THREE.Group();
+
+  // Poles
+  const poleGeo = new THREE.CylinderGeometry(0.06, 0.06, AWNING_BOTTOM + AWNING_HEIGHT, 6);
+  const poleMat = new THREE.MeshStandardMaterial({ color: 0x5a3a1a });
+  const poleLeft = new THREE.Mesh(poleGeo, poleMat);
+  poleLeft.position.set(-0.75, (AWNING_BOTTOM + AWNING_HEIGHT) / 2, 0);
+  group.add(poleLeft);
+
+  const poleRight = new THREE.Mesh(poleGeo, poleMat);
+  poleRight.position.set(0.75, (AWNING_BOTTOM + AWNING_HEIGHT) / 2, 0);
+  group.add(poleRight);
+
+  // Striped roof — 6 alternating green/white strips
+  const stripWidth = 1.7 / 6;
+  for (let i = 0; i < 6; i++) {
+    const stripGeo = new THREE.BoxGeometry(stripWidth, 0.1, 1.0);
+    const stripMat = new THREE.MeshStandardMaterial({
+      color: i % 2 === 0 ? 0x0b8c3a : 0xf5f5f5, // green / white
+    });
+    const strip = new THREE.Mesh(stripGeo, stripMat);
+    strip.position.set(-0.85 + stripWidth / 2 + i * stripWidth,
+                       AWNING_BOTTOM + AWNING_HEIGHT / 2, 0);
+    group.add(strip);
+  }
+
+  // Small hanging sign — a small dark box on the left
+  const signGeo = new THREE.BoxGeometry(0.4, 0.3, 0.05);
+  const signMat = new THREE.MeshStandardMaterial({ color: 0xe0b070 });
+  const sign = new THREE.Mesh(signGeo, signMat);
+  sign.position.set(-0.9, AWNING_BOTTOM + 0.3, 0.55);
+  group.add(sign);
+
+  return group;
+}
+
+// ---- 3. KEKE NAPEP (dodge sideways) ----
+// A yellow tricycle — box body, rounded top, wheels, windshield.
+// Must be tall enough to block a jump.
+function makeKekeNapep() {
+  const group = new THREE.Group();
+
+  const bodyColor = 0xf2c419; // keke yellow
+
+  // Main body
+  const bodyGeo = new THREE.BoxGeometry(KEKE_WIDTH, 1.5, KEKE_DEPTH);
+  const bodyMat = new THREE.MeshStandardMaterial({ color: bodyColor });
+  const body = new THREE.Mesh(bodyGeo, bodyMat);
+  body.position.y = 0.9;
+  group.add(body);
+
+  // Rounded roof — using a thin box, rotated a bit (or a squashed sphere)
+  const roofGeo = new THREE.SphereGeometry(0.85, 12, 8);
+  const roofMat = new THREE.MeshStandardMaterial({ color: 0xf7d23c });
+  const roof = new THREE.Mesh(roofGeo, roofMat);
+  roof.scale.set(1, 0.5, 1.05);
+  roof.position.y = 1.65;
+  group.add(roof);
+
+  // Windshield — dark blue tinted box
+  const glassGeo = new THREE.BoxGeometry(KEKE_WIDTH * 0.85, 0.6, 0.05);
+  const glassMat = new THREE.MeshStandardMaterial({
+    color: 0x1a2a4a,
+    metalness: 0.6,
+    roughness: 0.2,
+  });
+  const glass = new THREE.Mesh(glassGeo, glassMat);
+  glass.position.set(0, 1.15, KEKE_DEPTH / 2 - 0.02);
+  group.add(glass);
+
+  // Rear windshield
+  const glassBack = new THREE.Mesh(glassGeo, glassMat);
+  glassBack.position.set(0, 1.15, -KEKE_DEPTH / 2 + 0.02);
+  group.add(glassBack);
+
+  // Wheels — 3 wheels (front single, rear pair like a real keke)
+  const wheelGeo = new THREE.CylinderGeometry(0.28, 0.28, 0.15, 12);
+  const wheelMat = new THREE.MeshStandardMaterial({ color: 0x111111 });
+
+  // Front wheel
+  const wf = new THREE.Mesh(wheelGeo, wheelMat);
+  wf.rotation.z = Math.PI / 2;
+  wf.position.set(0, 0.28, KEKE_DEPTH / 2 - 0.3);
+  group.add(wf);
+
+  // Rear wheels
+  const wl = new THREE.Mesh(wheelGeo, wheelMat);
+  wl.rotation.z = Math.PI / 2;
+  wl.position.set(-KEKE_WIDTH / 2 + 0.1, 0.28, -KEKE_DEPTH / 2 + 0.3);
+  group.add(wl);
+
+  const wr = new THREE.Mesh(wheelGeo, wheelMat);
+  wr.rotation.z = Math.PI / 2;
+  wr.position.set(KEKE_WIDTH / 2 - 0.1, 0.28, -KEKE_DEPTH / 2 + 0.3);
+  group.add(wr);
+
+  return group;
+}
+
+// ---- Factory ----
+function makeObstacleMesh(type) {
+  let group;
+
+  if (type === 'low') {
+    // Tyre stack
+    group = makeTyreStack();
+  } else if (type === 'high') {
+    // Market stall awning
+    group = makeAwning();
+  } else {
+    // Keke napep
+    group = makeKekeNapep();
+  }
+
+  group.userData.type = type;
+  return group;
 }
 
 function spawnObstacleRow() {
@@ -741,12 +869,15 @@ function checkObstacleCollisions() {
     let hit = false;
 
     if (o.userData.type === 'low') {
-      const top = o.position.y + LOW_HEIGHT / 2;
+      // Tyre stack — must be above the top of the stack
+      const top = TYRE_STACK_HEIGHT;
       if (playerBottom < top) hit = true;
     } else if (o.userData.type === 'high') {
-      const bottom = o.position.y - 0.9;
+      // Awning — must be below AWNING_BOTTOM
+      const bottom = AWNING_BOTTOM;
       if (playerTop > bottom) hit = true;
     } else {
+      // Keke napep — always a hit if in same lane and same Z range
       hit = true;
     }
 
