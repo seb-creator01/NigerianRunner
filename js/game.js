@@ -1386,7 +1386,16 @@ loader.load(
     setTimeout(finishLoading, 2500);
   }
 );
-
+// Watchdog — if the character hasn't loaded in 15 seconds, something's wrong.
+setTimeout(() => {
+  if (!characterReady) {
+    console.warn('Character load timed out');
+    loadingTextEl.innerHTML =
+      '⚠️ Loading is taking too long.<br>' +
+      '<small>Check your connection. Reload to try again.</small>';
+    loadingBarFillEl.style.background = '#cc2222';
+  }
+}, 15000);
 // ---------------------------------------------------------------
 // 15. OBSTACLE FACTORY
 // ---------------------------------------------------------------
