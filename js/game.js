@@ -1,6 +1,14 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
+// Post-processing imports
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
+import { FXAAShader } from 'three/addons/shaders/FXAAShader.js';
+import { VignetteShader } from 'three/addons/shaders/VignetteShader.js';
+
 // ---------------------------------------------------------------
 // 1. RENDERER
 // ---------------------------------------------------------------
@@ -13,6 +21,12 @@ renderer.domElement.style.position = 'absolute';
 renderer.domElement.style.top = '0';
 renderer.domElement.style.left = '0';
 renderer.domElement.style.zIndex = '1';
+
+// Tone mapping + output color space — cinematic grading
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.15;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+
 container.appendChild(renderer.domElement);
 
 renderer.shadowMap.enabled = false;
@@ -35,6 +49,37 @@ const camera = new THREE.PerspectiveCamera(
 );
 camera.position.set(0, 5, 10);
 camera.lookAt(0, 1.5, -5);
+
+// ---------------------------------------------------------------
+// 3b. POST-PROCESSING COMPOSER
+// ---------------------------------------------------------------
+const composer = new EffectComposer(renderer);
+const renderPass = new RenderPass(scene, camera);
+composer.addPass(renderPass);
+
+// Bloom — soft glow on bright objects (coins, lamp bulbs, sun)
+const bloomPass = new UnrealBloomPass(
+  new THREE.Vector2(window.innerWidth, window.innerHeight),
+  0.55,   // strength
+  0.7,    // radius
+  0.85    // threshold (only bright pixels bloom)
+);
+composer.addPass(bloomPass);
+
+// Vignette — darkens edges
+const vignettePass = new ShaderPass(VignetteShader);
+vignettePass.uniforms['offset'].value = 1.1;
+vignettePass.uniforms['darkness'].value = 0.9;
+composer.addPass(vignettePass);
+
+// FXAA — smooth jagged edges
+const fxaaPass = new ShaderPass(FXAAShader);
+const pixelRatio = renderer.getPixelRatio();
+fxaaPass.material.uniforms['resolution'].value.x =
+  1 / (window.innerWidth * pixelRatio);
+fxaaPass.material.uniforms['resolution'].value.y =
+  1 / (window.innerHeight * pixelRatio);
+composer.addPass(fxaaPass);
 
 // ---------------------------------------------------------------
 // 4. LIGHTING
@@ -89,25 +134,19 @@ const ENV_LENGTH = 200;
 const ENV_START_Z = 10;
 const ENV_END_Z = ENV_START_Z - ENV_LENGTH;
 
-// ===============================================================
-// Helper — create a canvas texture with text on a coloured background
-// ===============================================================
 function makeSignTexture(text, bgColor = '#e0b070', textColor = '#3a1a00') {
   const canvas = document.createElement('canvas');
   canvas.width = 512;
   canvas.height = 256;
   const ctx = canvas.getContext('2d');
 
-  // Background
   ctx.fillStyle = bgColor;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  // Border
   ctx.strokeStyle = textColor;
   ctx.lineWidth = 12;
   ctx.strokeRect(6, 6, canvas.width - 12, canvas.height - 12);
 
-  // Text — big, bold, centered, uppercased
   ctx.fillStyle = textColor;
   ctx.font = 'bold 90px Arial, sans-serif';
   ctx.textAlign = 'center';
@@ -119,30 +158,24 @@ function makeSignTexture(text, bgColor = '#e0b070', textColor = '#3a1a00') {
   return tex;
 }
 
-// ===============================================================
-// Compound environment objects
-// ===============================================================
-
-// ---- Roadside signboard on a pole ----
 function makeSign(text, bgColor, textColor, side) {
   const group = new THREE.Group();
 
-  // Wooden pole
   const poleGeo = new THREE.CylinderGeometry(0.05, 0.06, 2.4, 6);
   const poleMat = new THREE.MeshStandardMaterial({ color: 0x4a2a10 });
   const pole = new THREE.Mesh(poleGeo, poleMat);
   pole.position.y = 1.2;
   group.add(pole);
 
-  // Signboard — a plane with the canvas texture
   const signGeo = new THREE.PlaneGeometry(1.2, 0.6);
   const signMat = new THREE.MeshStandardMaterial({
     map: makeSignTexture(text, bgColor, textColor),
     side: THREE.DoubleSide,
+    emissive: 0x221100,
+    emissiveIntensity: 0.3,
   });
   const sign = new THREE.Mesh(signGeo, signMat);
   sign.position.y = 2.2;
-  // Face the road: side -1 (left of road) rotates 90° to face +x
   sign.rotation.y = side === -1 ? -Math.PI / 2 : Math.PI / 2;
   group.add(sign);
 
@@ -150,9 +183,7 @@ function makeSign(text, bgColor, textColor, side) {
   return group;
 }
 
-// ---- Painted wall strip for buildings ----
 function makePaintedWall(width, height, side) {
-  // A colourful band along the base of buildings with a painted look
   const group = new THREE.Group();
 
   const wallGeo = new THREE.BoxGeometry(0.2, 1.2, width);
@@ -167,18 +198,15 @@ function makePaintedWall(width, height, side) {
   return group;
 }
 
-// ---- Market umbrella (colourful parasol) ----
 function makeUmbrella(x, z) {
   const group = new THREE.Group();
 
-  // Pole
   const poleGeo = new THREE.CylinderGeometry(0.04, 0.04, 1.8, 6);
   const poleMat = new THREE.MeshStandardMaterial({ color: 0x555555 });
   const pole = new THREE.Mesh(poleGeo, poleMat);
   pole.position.y = 0.9;
   group.add(pole);
 
-  // Umbrella top — a cone
   const umbColors = [0xd94f2b, 0x2b8d3a, 0xf2c419, 0x2b6bd9];
   const umbColor = umbColors[Math.floor(Math.random() * umbColors.length)];
   const umbGeo = new THREE.ConeGeometry(0.7, 0.4, 8);
@@ -192,25 +220,21 @@ function makeUmbrella(x, z) {
   return group;
 }
 
-// ---- Generator (small boxy machine with exhaust pipe) ----
 function makeGenerator(x, z) {
   const group = new THREE.Group();
 
-  // Main body — a box
   const bodyGeo = new THREE.BoxGeometry(0.7, 0.5, 0.5);
   const bodyMat = new THREE.MeshStandardMaterial({ color: 0x8a3a1a });
   const body = new THREE.Mesh(bodyGeo, bodyMat);
   body.position.y = 0.25;
   group.add(body);
 
-  // Exhaust pipe
   const pipeGeo = new THREE.CylinderGeometry(0.05, 0.05, 0.4, 6);
   const pipeMat = new THREE.MeshStandardMaterial({ color: 0x333333 });
   const pipe = new THREE.Mesh(pipeGeo, pipeMat);
   pipe.position.set(0.25, 0.65, 0);
   group.add(pipe);
 
-  // Handle bar on top
   const handleGeo = new THREE.BoxGeometry(0.6, 0.04, 0.04);
   const handleMat = new THREE.MeshStandardMaterial({ color: 0x222222 });
   const handle = new THREE.Mesh(handleGeo, handleMat);
@@ -222,7 +246,6 @@ function makeGenerator(x, z) {
   return group;
 }
 
-// ---- Rooftop water tank (black cylinder) ----
 function makeWaterTank(x, y, z) {
   const group = new THREE.Group();
 
@@ -231,7 +254,6 @@ function makeWaterTank(x, y, z) {
   const tank = new THREE.Mesh(tankGeo, tankMat);
   group.add(tank);
 
-  // Small cap on top
   const capGeo = new THREE.CylinderGeometry(0.1, 0.1, 0.15, 8);
   const capMat = new THREE.MeshStandardMaterial({ color: 0x2a2a2a });
   const cap = new THREE.Mesh(capGeo, capMat);
@@ -243,9 +265,6 @@ function makeWaterTank(x, y, z) {
   return group;
 }
 
-// ===============================================================
-// SIDEWALKS
-// ===============================================================
 const sidewalkGeometry = new THREE.BoxGeometry(1.5, 0.15, ROAD_LENGTH);
 const sidewalkMaterial = new THREE.MeshStandardMaterial({ color: 0xd8c9a8 });
 [-1, 1].forEach((side) => {
@@ -254,9 +273,6 @@ const sidewalkMaterial = new THREE.MeshStandardMaterial({ color: 0xd8c9a8 });
   scene.add(sidewalk);
 });
 
-// ===============================================================
-// BUILDINGS
-// ===============================================================
 const BUILDING_COLORS = [
   0xc17a4a, 0xa8603a, 0xd9a066, 0x8c5a3c, 0xe0c088, 0x9c6a4c,
 ];
@@ -308,18 +324,12 @@ for (let side of [-1, 1]) {
     const building = makeBuilding(w, h, d, x, z, side);
     environmentGroup.add(building);
 
-    // Painted wall at the base of the building
     if (Math.random() < 0.6) {
       const painted = makePaintedWall(d, 1.2, side);
-      painted.position.set(
-        side * (ROAD_EDGE + 0.2),
-        0,
-        z
-      );
+      painted.position.set(side * (ROAD_EDGE + 0.2), 0, z);
       environmentGroup.add(painted);
     }
 
-    // Rooftop water tank
     if (Math.random() < 0.35) {
       const tank = makeWaterTank(
         x + (Math.random() - 0.5) * (w - 0.8),
@@ -329,7 +339,6 @@ for (let side of [-1, 1]) {
       environmentGroup.add(tank);
     }
 
-    // Kiosk
     if (Math.random() < 0.4) {
       const kioskW = 1.2 + Math.random() * 0.6;
       const kioskH = 1.2 + Math.random() * 0.6;
@@ -343,10 +352,6 @@ for (let side of [-1, 1]) {
   }
 }
 
-// ===============================================================
-// SIGNS
-// ===============================================================
-// Nigerian roadside signs — the kind you see all over Lagos, Abuja, Kano
 const SIGN_DATA = [
   { text: 'SUYA',          bg: '#d94f2b', fg: '#fff5dd' },
   { text: 'BOLE',          bg: '#f2c419', fg: '#3a1a00' },
@@ -361,7 +366,6 @@ const SIGN_DATA = [
 ];
 
 for (let side of [-1, 1]) {
-  // Place signs at intervals along the roadside
   for (let i = 0; i < 14; i++) {
     const z = ENV_START_Z - i * (ENV_LENGTH / 14) - Math.random() * 4;
     const data = SIGN_DATA[Math.floor(Math.random() * SIGN_DATA.length)];
@@ -372,9 +376,6 @@ for (let side of [-1, 1]) {
   }
 }
 
-// ===============================================================
-// GENERATORS — place some along the roadside
-// ===============================================================
 for (let i = 0; i < 10; i++) {
   const side = Math.random() < 0.5 ? -1 : 1;
   const z = ENV_START_Z - Math.random() * ENV_LENGTH;
@@ -382,9 +383,6 @@ for (let i = 0; i < 10; i++) {
   environmentGroup.add(makeGenerator(x, z));
 }
 
-// ===============================================================
-// MARKET UMBRELLAS — colourful parasols
-// ===============================================================
 for (let i = 0; i < 10; i++) {
   const side = Math.random() < 0.5 ? -1 : 1;
   const z = ENV_START_Z - Math.random() * ENV_LENGTH;
@@ -392,9 +390,6 @@ for (let i = 0; i < 10; i++) {
   environmentGroup.add(makeUmbrella(x, z));
 }
 
-// ===============================================================
-// PALM TREES
-// ===============================================================
 function makePalm(x, z) {
   const group = new THREE.Group();
 
@@ -426,9 +421,6 @@ for (let i = 0; i < 12; i++) {
   environmentGroup.add(makePalm(x, z));
 }
 
-// ===============================================================
-// LAMP POSTS
-// ===============================================================
 function makeLampPost(x, z) {
   const group = new THREE.Group();
 
@@ -448,7 +440,7 @@ function makeLampPost(x, z) {
   const bulbMat = new THREE.MeshStandardMaterial({
     color: 0xfff0c0,
     emissive: 0xffd080,
-    emissiveIntensity: 0.6,
+    emissiveIntensity: 1.5,
   });
   const bulb = new THREE.Mesh(bulbGeo, bulbMat);
   bulb.position.set(x > 0 ? -0.6 : 0.6, 3.35, 0);
@@ -467,7 +459,6 @@ for (let side of [-1, 1]) {
   }
 }
 
-// Store initial Z on every environment object for recycling
 environmentGroup.children.forEach((obj) => {
   obj.userData.initialZ = obj.position.z;
 });
@@ -502,6 +493,46 @@ const shadowDisc = new THREE.Mesh(
 shadowDisc.rotation.x = -Math.PI / 2;
 shadowDisc.position.y = 0.12;
 scene.add(shadowDisc);
+
+// ---- DUST PARTICLES behind the player ----
+const DUST_COUNT = 30;
+const dustGeometry = new THREE.BufferGeometry();
+const dustPositions = new Float32Array(DUST_COUNT * 3);
+const dustLife = new Float32Array(DUST_COUNT); // 0..1
+for (let i = 0; i < DUST_COUNT; i++) {
+  dustPositions[i * 3 + 0] = 0;
+  dustPositions[i * 3 + 1] = 0;
+  dustPositions[i * 3 + 2] = 0;
+  dustLife[i] = 0;
+}
+dustGeometry.setAttribute('position', new THREE.BufferAttribute(dustPositions, 3));
+
+const dustMaterial = new THREE.PointsMaterial({
+  color: 0xd8b078,
+  size: 0.35,
+  transparent: true,
+  opacity: 0.6,
+  depthWrite: false,
+  sizeAttenuation: true,
+});
+const dustPoints = new THREE.Points(dustGeometry, dustMaterial);
+scene.add(dustPoints);
+
+let dustSpawnTimer = 0;
+
+function spawnDustPuff(x, y, z) {
+  // Find a dead particle and revive it
+  for (let i = 0; i < DUST_COUNT; i++) {
+    if (dustLife[i] <= 0) {
+      dustPositions[i * 3 + 0] = x + (Math.random() - 0.5) * 0.4;
+      dustPositions[i * 3 + 1] = y + Math.random() * 0.2;
+      dustPositions[i * 3 + 2] = z + (Math.random() - 0.5) * 0.4;
+      dustLife[i] = 1.0;
+      dustGeometry.attributes.position.needsUpdate = true;
+      return;
+    }
+  }
+}
 
 let characterModel = null;
 let mixer = null;
@@ -552,7 +583,8 @@ const coinGeometry = new THREE.CylinderGeometry(
 );
 const coinMaterial = new THREE.MeshStandardMaterial({
   color: 0xffcc00,
-  emissive: 0x664400,
+  emissive: 0xffaa00,
+  emissiveIntensity: 0.8,
   metalness: 0.7,
   roughness: 0.3,
 });
@@ -609,6 +641,8 @@ const settingsBtn = document.getElementById('settings-btn');
 const settingsBackBtn = document.getElementById('settings-back');
 const toggleSfxBtn = document.getElementById('toggle-sfx');
 const toggleMusicBtn = document.getElementById('toggle-music');
+const toggleGfxBtn = document.getElementById('toggle-gfx');
+const toggleBloomBtn = document.getElementById('toggle-bloom');
 const pauseBtn = document.getElementById('pause-btn');
 const resumeBtn = document.getElementById('resume-btn');
 const pauseQuitBtn = document.getElementById('pause-quit-btn');
@@ -648,6 +682,8 @@ const SETTINGS_KEY = 'nigerianRunner.settings';
 
 let sfxEnabled = true;
 let musicEnabled = true;
+let gfxEnabled = true;
+let bloomEnabled = true;
 
 function getBestScore() {
   const v = parseInt(localStorage.getItem(BEST_KEY) || '0', 10);
@@ -665,13 +701,15 @@ function loadSettings() {
     const s = JSON.parse(raw);
     if (typeof s.sfxEnabled === 'boolean') sfxEnabled = s.sfxEnabled;
     if (typeof s.musicEnabled === 'boolean') musicEnabled = s.musicEnabled;
+    if (typeof s.gfxEnabled === 'boolean') gfxEnabled = s.gfxEnabled;
+    if (typeof s.bloomEnabled === 'boolean') bloomEnabled = s.bloomEnabled;
   } catch (e) {}
 }
 
 function saveSettings() {
   localStorage.setItem(
     SETTINGS_KEY,
-    JSON.stringify({ sfxEnabled, musicEnabled })
+    JSON.stringify({ sfxEnabled, musicEnabled, gfxEnabled, bloomEnabled })
   );
 }
 
@@ -680,6 +718,15 @@ function updateSettingsUI() {
   toggleSfxBtn.classList.toggle('off', !sfxEnabled);
   toggleMusicBtn.textContent = musicEnabled ? 'ON' : 'OFF';
   toggleMusicBtn.classList.toggle('off', !musicEnabled);
+  toggleGfxBtn.textContent = gfxEnabled ? 'ON' : 'OFF';
+  toggleGfxBtn.classList.toggle('off', !gfxEnabled);
+  toggleBloomBtn.textContent = bloomEnabled ? 'ON' : 'OFF';
+  toggleBloomBtn.classList.toggle('off', !bloomEnabled);
+
+  // Apply toggle effects immediately
+  vignettePass.enabled = gfxEnabled;
+  fxaaPass.enabled = gfxEnabled;
+  bloomPass.enabled = bloomEnabled;
 }
 
 // ---------------------------------------------------------------
@@ -763,7 +810,7 @@ loader.load(
 );
 
 // ---------------------------------------------------------------
-// 15. OBSTACLE FACTORY (unchanged from previous step)
+// 15. OBSTACLE FACTORY
 // ---------------------------------------------------------------
 function makeTyreStack() {
   const group = new THREE.Group();
@@ -1163,6 +1210,10 @@ function startRun() {
   coinSpawnTimer = 0;
   score = 0;
 
+  // Reset dust
+  for (let i = 0; i < DUST_COUNT; i++) dustLife[i] = 0;
+  dustGeometry.attributes.position.needsUpdate = true;
+
   worldSpeed = START_WORLD_SPEED;
   runTime = 0;
   speedLevel = 1;
@@ -1260,6 +1311,18 @@ toggleSfxBtn.addEventListener('click', () => {
 
 toggleMusicBtn.addEventListener('click', () => {
   musicEnabled = !musicEnabled;
+  saveSettings();
+  updateSettingsUI();
+});
+
+toggleGfxBtn.addEventListener('click', () => {
+  gfxEnabled = !gfxEnabled;
+  saveSettings();
+  updateSettingsUI();
+});
+
+toggleBloomBtn.addEventListener('click', () => {
+  bloomEnabled = !bloomEnabled;
   saveSettings();
   updateSettingsUI();
 });
@@ -1482,6 +1545,21 @@ function animate() {
     const sizeFactor = Math.max(0.4, 1 - jumpHeight * 0.08);
     shadowDisc.scale.set(sizeFactor, sizeFactor, 1);
 
+    // ---- Dust particles ----
+    dustSpawnTimer += delta;
+    if (!isJumping && dustSpawnTimer > 0.06) {
+      dustSpawnTimer = 0;
+      spawnDustPuff(player.position.x, 0.2, player.position.z + 0.5);
+    }
+    for (let i = 0; i < DUST_COUNT; i++) {
+      if (dustLife[i] > 0) {
+        dustLife[i] -= delta * 2.2;
+        dustPositions[i * 3 + 1] += delta * 0.5;      // rise slightly
+        dustPositions[i * 3 + 2] += delta * 2.0;      // drift back
+      }
+    }
+    dustGeometry.attributes.position.needsUpdate = true;
+
     if (!isJumping && audioCtx) {
       footstepTimer += delta;
       if (footstepTimer >= FOOTSTEP_INTERVAL) {
@@ -1537,7 +1615,12 @@ function animate() {
     ' | spd: ' + worldSpeed.toFixed(1) +
     ' | ' + (characterModel ? 'model✓' : 'box');
 
-  renderer.render(scene, camera);
+  // Render through the composer instead of renderer.render
+  if (gfxEnabled || bloomEnabled) {
+    composer.render();
+  } else {
+    renderer.render(scene, camera);
+  }
 }
 
 animate();
@@ -1549,4 +1632,11 @@ window.addEventListener('resize', () => {
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
+  composer.setSize(window.innerWidth, window.innerHeight);
+
+  const pr = renderer.getPixelRatio();
+  fxaaPass.material.uniforms['resolution'].value.x =
+    1 / (window.innerWidth * pr);
+  fxaaPass.material.uniforms['resolution'].value.y =
+    1 / (window.innerHeight * pr);
 });
