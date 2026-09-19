@@ -41,7 +41,6 @@ const TUNNEL_FOG_FAR = 45;
 const BEACH_FOG_NEAR = 40;
 const BEACH_FOG_FAR = 80;
 
-// Fallback color in case HDRI fails to load
 scene.background = new THREE.Color(0xf5c98a);
 scene.fog = new THREE.Fog(0xf5c98a, OPEN_FOG_NEAR, OPEN_FOG_FAR);
 
@@ -101,7 +100,7 @@ fxaaPass.material.uniforms['resolution'].value.y =
 composer.addPass(fxaaPass);
 
 // ---------------------------------------------------------------
-// 4. LIGHTING — reduced because HDRI now provides most light
+// 4. LIGHTING
 // ---------------------------------------------------------------
 const ambientLight = new THREE.AmbientLight(0xffe8c0, 0.15);
 scene.add(ambientLight);
@@ -215,7 +214,7 @@ const barrierCapMat = new THREE.MeshStandardMaterial({
   }
 });
 
-// Water plane — visible in bridge/beach sections only
+// Water plane
 const waterMat = new THREE.MeshStandardMaterial({
   color: 0x2a6fa8,
   transparent: true,
@@ -463,6 +462,141 @@ function buildPaintedWall(width, x, z) {
   const wall = new THREE.Mesh(wallGeo, wallMat);
   wall.position.set(x, 0.6, z);
   group.add(wall);
+
+  return group;
+}
+
+// ---------- NEW: PERSON BUILDER ----------
+// A simple person made from primitives — legs, torso, head, and optional
+// bright "ankara" style clothing colors. Purely decorative.
+const PEOPLE_SKIN_COLORS = [
+  0x8a5a3a, 0x6b3f1f, 0xa06030, 0x5a3010, 0x7a4a20,
+];
+const PEOPLE_SHIRT_COLORS = [
+  0xd94f2b, 0x2b8d3a, 0xf2c419, 0x2b6bd9, 0xc42b80, 0xffffff, 0xe8a020,
+];
+const PEOPLE_TROUSER_COLORS = [
+  0x2a2a4a, 0x4a2a10, 0x1a1a1a, 0x3a3a3a, 0x5a3a1a,
+];
+
+function buildPerson(x, z, side) {
+  const group = new THREE.Group();
+
+  // Randomize colors
+  const skin = PEOPLE_SKIN_COLORS[Math.floor(Math.random() * PEOPLE_SKIN_COLORS.length)];
+  const shirt = PEOPLE_SHIRT_COLORS[Math.floor(Math.random() * PEOPLE_SHIRT_COLORS.length)];
+  const trousers = PEOPLE_TROUSER_COLORS[Math.floor(Math.random() * PEOPLE_TROUSER_COLORS.length)];
+
+  // Height variation (1.5 to 1.9 units)
+  const heightScale = 0.85 + Math.random() * 0.3;
+
+  // --- Legs (two thin boxes) ---
+  const legGeo = new THREE.BoxGeometry(0.15, 0.6 * heightScale, 0.15);
+  const legMat = new THREE.MeshStandardMaterial({ color: trousers });
+
+  const leftLeg = new THREE.Mesh(legGeo, legMat);
+  leftLeg.position.set(-0.1, 0.3 * heightScale, 0);
+  group.add(leftLeg);
+
+  const rightLeg = new THREE.Mesh(legGeo, legMat);
+  rightLeg.position.set(0.1, 0.3 * heightScale, 0);
+  group.add(rightLeg);
+
+  // --- Torso ---
+  const torsoGeo = new THREE.BoxGeometry(0.4, 0.55 * heightScale, 0.2);
+  const torsoMat = new THREE.MeshStandardMaterial({ color: shirt });
+  const torso = new THREE.Mesh(torsoGeo, torsoMat);
+  torso.position.set(0, 0.875 * heightScale, 0);
+  group.add(torso);
+
+  // --- Head ---
+  const headGeo = new THREE.SphereGeometry(0.13 * heightScale, 8, 6);
+  const headMat = new THREE.MeshStandardMaterial({ color: skin });
+  const head = new THREE.Mesh(headGeo, headMat);
+  head.position.set(0, 1.3 * heightScale, 0);
+  group.add(head);
+
+  // --- Arms (optional, thin boxes) ---
+  const armGeo = new THREE.BoxGeometry(0.08, 0.5 * heightScale, 0.08);
+  const armMat = new THREE.MeshStandardMaterial({ color: skin });
+
+  const leftArm = new THREE.Mesh(armGeo, armMat);
+  leftArm.position.set(-0.24, 0.875 * heightScale, 0);
+  group.add(leftArm);
+
+  const rightArm = new THREE.Mesh(armGeo, armMat);
+  rightArm.position.set(0.24, 0.875 * heightScale, 0);
+  group.add(rightArm);
+
+  // Position the whole group
+  group.position.set(x, 0, z);
+
+  // Face the road (side -1 faces +x, side 1 faces -x)
+  group.rotation.y = side === -1 ? Math.PI / 2 : -Math.PI / 2;
+
+  // Store a random phase for the bobbing animation
+  group.userData.bobPhase = Math.random() * Math.PI * 2;
+  group.userData.isPerson = true;
+
+  return group;
+}
+
+// ---------- NEW: TRAIN BUILDER ----------
+function buildTrain() {
+  const group = new THREE.Group();
+
+  const trainLength = 12;
+  const trainHeight = 2.2;
+  const trainWidth = 1.6;
+
+  // Main body — long box, dark green (typical Nigerian train color)
+  const bodyGeo = new THREE.BoxGeometry(trainWidth, trainHeight, trainLength);
+  const bodyMat = new THREE.MeshStandardMaterial({
+    color: 0x2a5a3a,
+    metalness: 0.4,
+    roughness: 0.6,
+  });
+  const body = new THREE.Mesh(bodyGeo, bodyMat);
+  body.position.y = trainHeight / 2 + 0.3;
+  group.add(body);
+
+  // Roof — slightly wider, dark grey
+  const roofGeo = new THREE.BoxGeometry(trainWidth + 0.15, 0.2, trainLength - 0.3);
+  const roofMat = new THREE.MeshStandardMaterial({ color: 0x2a2a2a });
+  const roof = new THREE.Mesh(roofGeo, roofMat);
+  roof.position.y = trainHeight + 0.4;
+  group.add(roof);
+
+  // Windows — bright emissive rectangles along the side
+  const windowCount = 6;
+  for (let i = 0; i < windowCount; i++) {
+    const winGeo = new THREE.BoxGeometry(0.05, 0.5, 1.0);
+    const winMat = new THREE.MeshStandardMaterial({
+      color: 0xfff0a0,
+      emissive: 0xffd060,
+      emissiveIntensity: 1.5,
+    });
+    const winLeft = new THREE.Mesh(winGeo, winMat);
+    winLeft.position.set(-trainWidth / 2 - 0.03, trainHeight / 2 + 0.4,
+                          -(trainLength / 2) + 1 + i * 1.8);
+    group.add(winLeft);
+
+    const winRight = new THREE.Mesh(winGeo, winMat);
+    winRight.position.set(trainWidth / 2 + 0.03, trainHeight / 2 + 0.4,
+                           -(trainLength / 2) + 1 + i * 1.8);
+    group.add(winRight);
+  }
+
+  // Front light — a bright glowing sphere at the front
+  const lightGeo = new THREE.SphereGeometry(0.15, 8, 6);
+  const lightMat = new THREE.MeshStandardMaterial({
+    color: 0xffffff,
+    emissive: 0xffeeaa,
+    emissiveIntensity: 3.0,
+  });
+  const frontLight = new THREE.Mesh(lightGeo, lightMat);
+  frontLight.position.set(0, trainHeight / 2 + 0.4, trainLength / 2 + 0.05);
+  group.add(frontLight);
 
   return group;
 }
@@ -786,6 +920,16 @@ function populateSection(sectionGroup, type, centerZ) {
         sectionGroup.add(buildUmbrella(x, z));
       }
     }
+
+    // NEW: People on the sidewalks
+    for (let side of [-1, 1]) {
+      const peopleCount = 4 + Math.floor(Math.random() * 4);
+      for (let i = 0; i < peopleCount; i++) {
+        const z = centerZ + half - Math.random() * SECTION_LENGTH;
+        const x = side * (ROAD_WIDTH / 2 + 1.1 + Math.random() * 0.4);
+        sectionGroup.add(buildPerson(x, z, side));
+      }
+    }
   } else if (type === 'tunnel') {
     const tunnelFront = centerZ + half * 0.15;
     const tunnelBack = centerZ - half;
@@ -815,6 +959,15 @@ function populateSection(sectionGroup, type, centerZ) {
 
     sectionGroup.add(buildPalm(-8, centerZ + 10));
     sectionGroup.add(buildPalm(8, centerZ - 10));
+
+    // A few people on the bridge railing area
+    for (let side of [-1, 1]) {
+      for (let i = 0; i < 3; i++) {
+        const z = centerZ + half - Math.random() * SECTION_LENGTH;
+        const x = side * (ROAD_WIDTH / 2 + 1.05);
+        sectionGroup.add(buildPerson(x, z, side));
+      }
+    }
   } else if (type === 'railway') {
     sectionGroup.add(buildTrainTracks(-1, centerZ));
     sectionGroup.add(buildTrainTracks(1, centerZ));
@@ -830,6 +983,25 @@ function populateSection(sectionGroup, type, centerZ) {
       const side = Math.random() < 0.5 ? -1 : 1;
       const z = centerZ + (Math.random() - 0.5) * SECTION_LENGTH;
       sectionGroup.add(buildBuilding(3, 3 + Math.random() * 2, 3, side * 9, z, side));
+    }
+
+    // NEW: A train on one of the tracks
+    const train = buildTrain();
+    const trainSide = Math.random() < 0.5 ? -1 : 1;
+    const trainX = trainSide * (ROAD_WIDTH / 2 + 3.0);
+    train.position.set(trainX, 0, centerZ + 20);
+    train.userData.isTrain = true;
+    train.userData.trainSpeed = 25 + Math.random() * 15; // units per second
+    train.userData.trainSide = trainSide;
+    sectionGroup.add(train);
+
+    // A few people watching the train
+    for (let side of [-1, 1]) {
+      for (let i = 0; i < 2; i++) {
+        const z = centerZ + half - Math.random() * SECTION_LENGTH;
+        const x = side * (ROAD_WIDTH / 2 + 1.15);
+        sectionGroup.add(buildPerson(x, z, side));
+      }
     }
   } else if (type === 'rural') {
     sectionGroup.add(buildDirtGround(6, -7, centerZ));
@@ -850,6 +1022,14 @@ function populateSection(sectionGroup, type, centerZ) {
 
     const side = Math.random() < 0.5 ? -1 : 1;
     sectionGroup.add(buildBuilding(2.5, 2.0, 2.5, side * 8, centerZ, side));
+
+    // Fewer people in rural areas — just a couple
+    for (let i = 0; i < 2; i++) {
+      const pside = Math.random() < 0.5 ? -1 : 1;
+      const z = centerZ + (Math.random() - 0.5) * SECTION_LENGTH;
+      const x = pside * (ROAD_WIDTH / 2 + 1.1);
+      sectionGroup.add(buildPerson(x, z, pside));
+    }
   } else if (type === 'beach') {
     sectionGroup.add(buildSandPatch(6, -7, centerZ));
     sectionGroup.add(buildSandPatch(6, 7, centerZ));
@@ -869,6 +1049,16 @@ function populateSection(sectionGroup, type, centerZ) {
       const z = centerZ + (Math.random() - 0.5) * SECTION_LENGTH;
       const x = side * (ROAD_EDGE + 0.3);
       sectionGroup.add(buildUmbrella(x, z));
+    }
+
+    // Bathers / walkers on the beach — more people than city
+    for (let side of [-1, 1]) {
+      const peopleCount = 5 + Math.floor(Math.random() * 5);
+      for (let i = 0; i < peopleCount; i++) {
+        const z = centerZ + half - Math.random() * SECTION_LENGTH;
+        const x = side * (ROAD_WIDTH / 2 + 1 + Math.random() * 1.5);
+        sectionGroup.add(buildPerson(x, z, side));
+      }
     }
   } else if (type === 'fork') {
     sectionGroup.add(buildDirectionSign(-3.5, 3.0, centerZ, 'TUNNEL', '#2b2b2b', '#ffee88'));
@@ -979,6 +1169,28 @@ function updateSections(effectiveSpeed, delta) {
 
   for (let i = 0; i < sections.length; i++) {
     sections[i].position.z += moveAmount;
+  }
+
+  // Animate people — bobbing, and animate trains
+  const time = performance.now() / 1000;
+  for (let i = 0; i < sections.length; i++) {
+    const section = sections[i];
+    for (let j = 0; j < section.children.length; j++) {
+      const child = section.children[j];
+      if (child.userData.isPerson) {
+        // Bob up and down slightly
+        const bob = Math.sin(time * 2 + child.userData.bobPhase) * 0.03;
+        child.position.y = bob;
+      }
+      if (child.userData.isTrain) {
+        // Move the train along the tracks (in local Z of the section)
+        child.position.z -= child.userData.trainSpeed * delta;
+        // Recycle the train when it exits the section
+        if (child.position.z < -SECTION_LENGTH / 2 - 20) {
+          child.position.z = SECTION_LENGTH / 2 + 20;
+        }
+      }
+    }
   }
 
   const recycleThreshold = SECTION_LENGTH / 2 + SECTION_LENGTH;
