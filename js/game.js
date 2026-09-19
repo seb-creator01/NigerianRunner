@@ -1901,7 +1901,7 @@ function updateSettingsUI() {
 // ---------------------------------------------------------------
 // 14. CHARACTER LOADING
 // ---------------------------------------------------------------
-const CHARACTER_URL = 'https://seb-creator01.github.io/NigerianRunner/Soldier.glb';
+const CHARACTER_URL = 'https://seb-creator01.github.io/NigerianRunner/Casual_2.gltf';
 
 const CHARACTER_SCALE = 1.15;
 const CHARACTER_ROTATION_Y = 0;
