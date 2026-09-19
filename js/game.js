@@ -116,7 +116,7 @@ const LANE_X = [-2, 0, 2];
 const STARTING_LANE = 1;
 
 // ---------------------------------------------------------------
-// 6. ROAD — static and long
+// 6. ROAD
 // ---------------------------------------------------------------
 const ROAD_LENGTH = 500;
 const ROAD_WIDTH = 7;
@@ -232,7 +232,173 @@ waterPlane.visible = false;
 scene.add(waterPlane);
 
 // ---------------------------------------------------------------
-// 6b. SECTION SYSTEM
+// 6b. KEKE NAPEP — BEAUTIFUL COLORED VERSION
+// ---------------------------------------------------------------
+// Colors and materials shared across all kekes
+const KEKE_COLORS = [
+  { body: 0xf2c419, roof: 0xf7d23c, name: 'yellow' },  // classic
+  { body: 0x2b8d3a, roof: 0x3aa84a, name: 'green' },
+  { body: 0x2b6bd9, roof: 0x3a86f0, name: 'blue' },
+  { body: 0xd94f2b, roof: 0xe85a3a, name: 'red' },
+  { body: 0xe87a1a, roof: 0xf08a2a, name: 'orange' },
+  { body: 0x7a3aa8, roof: 0x8a4ab8, name: 'purple' },
+  { body: 0xf2f2f2, roof: 0xffffff, name: 'white' },
+];
+
+// Cached geometries and materials (shared to reduce GPU memory)
+const kekeGeometries = {
+  body: new THREE.BoxGeometry(1.6, 1.5, 2.0),
+  roof: new THREE.SphereGeometry(0.85, 12, 8),
+  windshield: new THREE.BoxGeometry(1.36, 0.6, 0.05),
+  frontWheel: new THREE.CylinderGeometry(0.28, 0.28, 0.15, 12),
+  sideMirror: new THREE.BoxGeometry(0.15, 0.1, 0.05),
+  headlight: new THREE.SphereGeometry(0.12, 8, 6),
+  licensePlate: new THREE.BoxGeometry(0.4, 0.2, 0.03),
+  bumper: new THREE.BoxGeometry(1.65, 0.15, 0.15),
+  roofOrnament: new THREE.BoxGeometry(0.4, 0.06, 0.4),
+};
+
+const kekeMaterials = {
+  glass: new THREE.MeshStandardMaterial({
+    color: 0x1a2a4a,
+    metalness: 0.7,
+    roughness: 0.15,
+  }),
+  wheel: new THREE.MeshStandardMaterial({ color: 0x111111 }),
+  chrome: new THREE.MeshStandardMaterial({
+    color: 0xcccccc,
+    metalness: 0.9,
+    roughness: 0.15,
+  }),
+  headlight: new THREE.MeshStandardMaterial({
+    color: 0xffffff,
+    emissive: 0xffeeaa,
+    emissiveIntensity: 2.5,
+  }),
+  licensePlate: new THREE.MeshStandardMaterial({
+    color: 0xf2f2f2,
+    emissive: 0x221100,
+    emissiveIntensity: 0.2,
+  }),
+  bumper: new THREE.MeshStandardMaterial({
+    color: 0x2a2a2a,
+    metalness: 0.3,
+    roughness: 0.6,
+  }),
+};
+
+// Cache the color materials for each scheme
+const kekeColorMaterials = KEKE_COLORS.map((scheme) => ({
+  body: new THREE.MeshStandardMaterial({ color: scheme.body }),
+  roof: new THREE.MeshStandardMaterial({ color: scheme.roof }),
+}));
+
+// ---------- The main keke builder ----------
+// Now returns a BEAUTIFUL keke with 7 possible color schemes,
+// chrome details, headlights, license plate, mirrors, and a roof ornament.
+function makeKekeNapep() {
+  const group = new THREE.Group();
+
+  // Pick a random color scheme
+  const colorIndex = Math.floor(Math.random() * KEKE_COLORS.length);
+  const colorMats = kekeColorMaterials[colorIndex];
+
+  // --- Main body ---
+  const body = new THREE.Mesh(kekeGeometries.body, colorMats.body);
+  body.position.y = 0.9;
+  group.add(body);
+
+  // --- Rounded roof ---
+  const roof = new THREE.Mesh(kekeGeometries.roof, colorMats.roof);
+  roof.scale.set(1, 0.5, 1.05);
+  roof.position.y = 1.65;
+  group.add(roof);
+
+  // --- Roof ornament — small ridge on top (like real kekes) ---
+  const roofOrnament = new THREE.Mesh(
+    kekeGeometries.roofOrnament,
+    kekeMaterials.bumper
+  );
+  roofOrnament.position.y = 2.1;
+  group.add(roofOrnament);
+
+  // --- Front windshield ---
+  const glass = new THREE.Mesh(kekeGeometries.windshield, kekeMaterials.glass);
+  glass.position.set(0, 1.15, 1.0 - 0.02);
+  group.add(glass);
+
+  // --- Back windshield ---
+  const glassBack = new THREE.Mesh(kekeGeometries.windshield, kekeMaterials.glass);
+  glassBack.position.set(0, 1.15, -1.0 + 0.02);
+  group.add(glassBack);
+
+  // --- Side windows (thin dark planes on both sides) ---
+  const sideGlassGeo = new THREE.BoxGeometry(0.04, 0.5, 0.9);
+  const sideGlassL = new THREE.Mesh(sideGlassGeo, kekeMaterials.glass);
+  sideGlassL.position.set(-0.81, 1.15, 0);
+  group.add(sideGlassL);
+
+  const sideGlassR = new THREE.Mesh(sideGlassGeo, kekeMaterials.glass);
+  sideGlassR.position.set(0.81, 1.15, 0);
+  group.add(sideGlassR);
+
+  // --- Wheels (3 wheels: single front, two rear) ---
+  const wf = new THREE.Mesh(kekeGeometries.frontWheel, kekeMaterials.wheel);
+  wf.rotation.z = Math.PI / 2;
+  wf.position.set(0, 0.28, 0.7);
+  group.add(wf);
+
+  const wl = new THREE.Mesh(kekeGeometries.frontWheel, kekeMaterials.wheel);
+  wl.rotation.z = Math.PI / 2;
+  wl.position.set(-0.7, 0.28, -0.7);
+  group.add(wl);
+
+  const wr = new THREE.Mesh(kekeGeometries.frontWheel, kekeMaterials.wheel);
+  wr.rotation.z = Math.PI / 2;
+  wr.position.set(0.7, 0.28, -0.7);
+  group.add(wr);
+
+  // --- Side mirrors (chrome) ---
+  const mirrorL = new THREE.Mesh(kekeGeometries.sideMirror, kekeMaterials.chrome);
+  mirrorL.position.set(-0.85, 1.35, 0.85);
+  group.add(mirrorL);
+
+  const mirrorR = new THREE.Mesh(kekeGeometries.sideMirror, kekeMaterials.chrome);
+  mirrorR.position.set(0.85, 1.35, 0.85);
+  group.add(mirrorR);
+
+  // --- Headlights ---
+  const headlightGeo = kekeGeometries.headlight;
+  const headlightL = new THREE.Mesh(headlightGeo, kekeMaterials.headlight);
+  headlightL.position.set(-0.5, 0.65, 1.02);
+  group.add(headlightL);
+
+  const headlightR = new THREE.Mesh(headlightGeo, kekeMaterials.headlight);
+  headlightR.position.set(0.5, 0.65, 1.02);
+  group.add(headlightR);
+
+  // --- License plate (front) ---
+  const plateGeo = kekeGeometries.licensePlate;
+  const plate = new THREE.Mesh(plateGeo, kekeMaterials.licensePlate);
+  plate.position.set(0, 0.45, 1.02);
+  group.add(plate);
+
+  // --- Front bumper (dark bar at base) ---
+  const bumperGeo = kekeGeometries.bumper;
+  const bumper = new THREE.Mesh(bumperGeo, kekeMaterials.bumper);
+  bumper.position.set(0, 0.3, 1.0);
+  group.add(bumper);
+
+  // --- Back bumper ---
+  const bumperBack = new THREE.Mesh(bumperGeo, kekeMaterials.bumper);
+  bumperBack.position.set(0, 0.3, -1.0);
+  group.add(bumperBack);
+
+  return group;
+}
+
+// ---------------------------------------------------------------
+// 6c. SECTION SYSTEM
 // ---------------------------------------------------------------
 const SECTION_LENGTH = 100;
 const SECTION_COUNT = 3;
@@ -466,9 +632,7 @@ function buildPaintedWall(width, x, z) {
   return group;
 }
 
-// ---------- NEW: PERSON BUILDER ----------
-// A simple person made from primitives — legs, torso, head, and optional
-// bright "ankara" style clothing colors. Purely decorative.
+// ---------- People ----------
 const PEOPLE_SKIN_COLORS = [
   0x8a5a3a, 0x6b3f1f, 0xa06030, 0x5a3010, 0x7a4a20,
 ];
@@ -482,15 +646,12 @@ const PEOPLE_TROUSER_COLORS = [
 function buildPerson(x, z, side) {
   const group = new THREE.Group();
 
-  // Randomize colors
   const skin = PEOPLE_SKIN_COLORS[Math.floor(Math.random() * PEOPLE_SKIN_COLORS.length)];
   const shirt = PEOPLE_SHIRT_COLORS[Math.floor(Math.random() * PEOPLE_SHIRT_COLORS.length)];
   const trousers = PEOPLE_TROUSER_COLORS[Math.floor(Math.random() * PEOPLE_TROUSER_COLORS.length)];
 
-  // Height variation (1.5 to 1.9 units)
   const heightScale = 0.85 + Math.random() * 0.3;
 
-  // --- Legs (two thin boxes) ---
   const legGeo = new THREE.BoxGeometry(0.15, 0.6 * heightScale, 0.15);
   const legMat = new THREE.MeshStandardMaterial({ color: trousers });
 
@@ -502,21 +663,18 @@ function buildPerson(x, z, side) {
   rightLeg.position.set(0.1, 0.3 * heightScale, 0);
   group.add(rightLeg);
 
-  // --- Torso ---
   const torsoGeo = new THREE.BoxGeometry(0.4, 0.55 * heightScale, 0.2);
   const torsoMat = new THREE.MeshStandardMaterial({ color: shirt });
   const torso = new THREE.Mesh(torsoGeo, torsoMat);
   torso.position.set(0, 0.875 * heightScale, 0);
   group.add(torso);
 
-  // --- Head ---
   const headGeo = new THREE.SphereGeometry(0.13 * heightScale, 8, 6);
   const headMat = new THREE.MeshStandardMaterial({ color: skin });
   const head = new THREE.Mesh(headGeo, headMat);
   head.position.set(0, 1.3 * heightScale, 0);
   group.add(head);
 
-  // --- Arms (optional, thin boxes) ---
   const armGeo = new THREE.BoxGeometry(0.08, 0.5 * heightScale, 0.08);
   const armMat = new THREE.MeshStandardMaterial({ color: skin });
 
@@ -528,20 +686,15 @@ function buildPerson(x, z, side) {
   rightArm.position.set(0.24, 0.875 * heightScale, 0);
   group.add(rightArm);
 
-  // Position the whole group
   group.position.set(x, 0, z);
-
-  // Face the road (side -1 faces +x, side 1 faces -x)
   group.rotation.y = side === -1 ? Math.PI / 2 : -Math.PI / 2;
-
-  // Store a random phase for the bobbing animation
   group.userData.bobPhase = Math.random() * Math.PI * 2;
   group.userData.isPerson = true;
 
   return group;
 }
 
-// ---------- NEW: TRAIN BUILDER ----------
+// ---------- Trains ----------
 function buildTrain() {
   const group = new THREE.Group();
 
@@ -549,7 +702,6 @@ function buildTrain() {
   const trainHeight = 2.2;
   const trainWidth = 1.6;
 
-  // Main body — long box, dark green (typical Nigerian train color)
   const bodyGeo = new THREE.BoxGeometry(trainWidth, trainHeight, trainLength);
   const bodyMat = new THREE.MeshStandardMaterial({
     color: 0x2a5a3a,
@@ -560,14 +712,12 @@ function buildTrain() {
   body.position.y = trainHeight / 2 + 0.3;
   group.add(body);
 
-  // Roof — slightly wider, dark grey
   const roofGeo = new THREE.BoxGeometry(trainWidth + 0.15, 0.2, trainLength - 0.3);
   const roofMat = new THREE.MeshStandardMaterial({ color: 0x2a2a2a });
   const roof = new THREE.Mesh(roofGeo, roofMat);
   roof.position.y = trainHeight + 0.4;
   group.add(roof);
 
-  // Windows — bright emissive rectangles along the side
   const windowCount = 6;
   for (let i = 0; i < windowCount; i++) {
     const winGeo = new THREE.BoxGeometry(0.05, 0.5, 1.0);
@@ -587,7 +737,6 @@ function buildTrain() {
     group.add(winRight);
   }
 
-  // Front light — a bright glowing sphere at the front
   const lightGeo = new THREE.SphereGeometry(0.15, 8, 6);
   const lightMat = new THREE.MeshStandardMaterial({
     color: 0xffffff,
@@ -601,7 +750,7 @@ function buildTrain() {
   return group;
 }
 
-// ---------- Tunnel builders ----------
+// ---------- Tunnel ----------
 function buildTunnelWall(side, centerZ, length) {
   const group = new THREE.Group();
   const wallHeight = 4.5;
@@ -668,7 +817,7 @@ function buildTunnelLights(side, centerZ, length) {
   return group;
 }
 
-// ---------- Bridge builders ----------
+// ---------- Bridge ----------
 function buildBridgeRailing(side, centerZ) {
   const group = new THREE.Group();
   const railX = side * (ROAD_WIDTH / 2 + 1.4);
@@ -692,7 +841,7 @@ function buildBridgeRailing(side, centerZ) {
   return group;
 }
 
-// ---------- Railway builders ----------
+// ---------- Railway ----------
 function buildTrainTracks(side, centerZ) {
   const group = new THREE.Group();
   const trackX = side * (ROAD_WIDTH / 2 + 3.0);
@@ -739,7 +888,7 @@ function buildRailwaySign(x, z) {
   return group;
 }
 
-// ---------- Rural builders ----------
+// ---------- Rural ----------
 function buildDirtGround(width, x, z) {
   const group = new THREE.Group();
   const dirtGeo = new THREE.BoxGeometry(width, 0.1, SECTION_LENGTH);
@@ -766,7 +915,7 @@ function buildBush(x, z) {
   return group;
 }
 
-// ---------- Beach builders ----------
+// ---------- Beach ----------
 function buildSandPatch(width, x, z) {
   const group = new THREE.Group();
   const sandGeo = new THREE.BoxGeometry(width, 0.08, SECTION_LENGTH);
@@ -789,7 +938,7 @@ function buildBeachWater(x, z) {
   return group;
 }
 
-// ---------- Fork builders ----------
+// ---------- Fork ----------
 function buildForkTunnelEntrance(centerZ) {
   const group = new THREE.Group();
   const radius = ROAD_WIDTH / 2 + 1.5;
@@ -858,6 +1007,80 @@ const SIGN_DATA = [
   { text: 'WELCOME',       bg: '#d94f2b', fg: '#fff5dd' },
 ];
 
+// ---------------------------------------------------------------
+// 6d. BACKGROUND TRAFFIC SYSTEM
+// ---------------------------------------------------------------
+// Kekes drive on background lanes OUTSIDE the barriers. They don't
+// interact with the player at all — pure atmosphere.
+
+const TRAFFIC_LANES_X = [
+  -ROAD_WIDTH / 2 - 3.0,  // far left background
+   ROAD_WIDTH / 2 + 3.0,  // far right background
+];
+
+const trafficGroup = new THREE.Group();
+scene.add(trafficGroup);
+
+// Track active traffic kekes
+const trafficKekes = [];
+const TRAFFIC_MAX = 5;          // max simultaneous on screen
+const TRAFFIC_SPAWN_INTERVAL = 2.5;  // seconds between spawns
+let trafficSpawnTimer = 0;
+
+function spawnTrafficKeke() {
+  if (trafficKekes.length >= TRAFFIC_MAX) return;
+
+  const laneIndex = Math.floor(Math.random() * TRAFFIC_LANES_X.length);
+  const laneX = TRAFFIC_LANES_X[laneIndex];
+
+  // Direction: on left lane, driving forward (toward -z, i.e., same as player)
+  // On right lane, driving backward (toward +z, i.e., opposite)
+  const direction = laneIndex === 0 ? -1 : 1;
+  const baseSpeed = 8 + Math.random() * 10;
+  const speed = baseSpeed * direction;
+
+  const keke = makeKekeNapep();
+
+  // Face the direction of travel
+  keke.rotation.y = direction > 0 ? Math.PI : 0;
+
+  const startZ = direction > 0 ? -180 : 30;
+  keke.position.set(laneX, 0, startZ);
+
+  keke.userData.speed = speed;
+  keke.userData.isTraffic = true;
+
+  trafficGroup.add(keke);
+  trafficKekes.push(keke);
+}
+
+function updateTraffic(delta) {
+  // Spawn new kekes over time
+  trafficSpawnTimer += delta;
+  if (trafficSpawnTimer >= TRAFFIC_SPAWN_INTERVAL) {
+    trafficSpawnTimer = 0;
+    spawnTrafficKeke();
+  }
+
+  // Move each traffic keke and recycle when off-screen
+  for (let i = trafficKekes.length - 1; i >= 0; i--) {
+    const keke = trafficKekes[i];
+    keke.position.z += keke.userData.speed * delta;
+
+    // Recycle if too far past the camera or too far behind
+    if (keke.position.z > 40 || keke.position.z < -220) {
+      trafficGroup.remove(keke);
+      trafficKekes.splice(i, 1);
+    }
+  }
+}
+
+function clearTraffic() {
+  trafficKekes.forEach((k) => trafficGroup.remove(k));
+  trafficKekes.length = 0;
+  trafficSpawnTimer = 0;
+}
+
 function populateSection(sectionGroup, type, centerZ) {
   while (sectionGroup.children.length > 0) {
     sectionGroup.remove(sectionGroup.children[0]);
@@ -921,7 +1144,7 @@ function populateSection(sectionGroup, type, centerZ) {
       }
     }
 
-    // NEW: People on the sidewalks
+    // People on the sidewalks
     for (let side of [-1, 1]) {
       const peopleCount = 4 + Math.floor(Math.random() * 4);
       for (let i = 0; i < peopleCount; i++) {
@@ -960,7 +1183,6 @@ function populateSection(sectionGroup, type, centerZ) {
     sectionGroup.add(buildPalm(-8, centerZ + 10));
     sectionGroup.add(buildPalm(8, centerZ - 10));
 
-    // A few people on the bridge railing area
     for (let side of [-1, 1]) {
       for (let i = 0; i < 3; i++) {
         const z = centerZ + half - Math.random() * SECTION_LENGTH;
@@ -985,17 +1207,15 @@ function populateSection(sectionGroup, type, centerZ) {
       sectionGroup.add(buildBuilding(3, 3 + Math.random() * 2, 3, side * 9, z, side));
     }
 
-    // NEW: A train on one of the tracks
     const train = buildTrain();
     const trainSide = Math.random() < 0.5 ? -1 : 1;
     const trainX = trainSide * (ROAD_WIDTH / 2 + 3.0);
     train.position.set(trainX, 0, centerZ + 20);
     train.userData.isTrain = true;
-    train.userData.trainSpeed = 25 + Math.random() * 15; // units per second
+    train.userData.trainSpeed = 25 + Math.random() * 15;
     train.userData.trainSide = trainSide;
     sectionGroup.add(train);
 
-    // A few people watching the train
     for (let side of [-1, 1]) {
       for (let i = 0; i < 2; i++) {
         const z = centerZ + half - Math.random() * SECTION_LENGTH;
@@ -1023,7 +1243,6 @@ function populateSection(sectionGroup, type, centerZ) {
     const side = Math.random() < 0.5 ? -1 : 1;
     sectionGroup.add(buildBuilding(2.5, 2.0, 2.5, side * 8, centerZ, side));
 
-    // Fewer people in rural areas — just a couple
     for (let i = 0; i < 2; i++) {
       const pside = Math.random() < 0.5 ? -1 : 1;
       const z = centerZ + (Math.random() - 0.5) * SECTION_LENGTH;
@@ -1051,7 +1270,6 @@ function populateSection(sectionGroup, type, centerZ) {
       sectionGroup.add(buildUmbrella(x, z));
     }
 
-    // Bathers / walkers on the beach — more people than city
     for (let side of [-1, 1]) {
       const peopleCount = 5 + Math.floor(Math.random() * 5);
       for (let i = 0; i < peopleCount; i++) {
@@ -1171,21 +1389,17 @@ function updateSections(effectiveSpeed, delta) {
     sections[i].position.z += moveAmount;
   }
 
-  // Animate people — bobbing, and animate trains
   const time = performance.now() / 1000;
   for (let i = 0; i < sections.length; i++) {
     const section = sections[i];
     for (let j = 0; j < section.children.length; j++) {
       const child = section.children[j];
       if (child.userData.isPerson) {
-        // Bob up and down slightly
         const bob = Math.sin(time * 2 + child.userData.bobPhase) * 0.03;
         child.position.y = bob;
       }
       if (child.userData.isTrain) {
-        // Move the train along the tracks (in local Z of the section)
         child.position.z -= child.userData.trainSpeed * delta;
-        // Recycle the train when it exits the section
         if (child.position.z < -SECTION_LENGTH / 2 - 20) {
           child.position.z = SECTION_LENGTH / 2 + 20;
         }
@@ -1850,56 +2064,7 @@ function makeAwning() {
   return group;
 }
 
-function makeKekeNapep() {
-  const group = new THREE.Group();
-
-  const bodyGeo = new THREE.BoxGeometry(KEKE_WIDTH, 1.5, KEKE_DEPTH);
-  const bodyMat = new THREE.MeshStandardMaterial({ color: 0xf2c419 });
-  const body = new THREE.Mesh(bodyGeo, bodyMat);
-  body.position.y = 0.9;
-  group.add(body);
-
-  const roofGeo = new THREE.SphereGeometry(0.85, 12, 8);
-  const roofMat = new THREE.MeshStandardMaterial({ color: 0xf7d23c });
-  const roof = new THREE.Mesh(roofGeo, roofMat);
-  roof.scale.set(1, 0.5, 1.05);
-  roof.position.y = 1.65;
-  group.add(roof);
-
-  const glassGeo = new THREE.BoxGeometry(KEKE_WIDTH * 0.85, 0.6, 0.05);
-  const glassMat = new THREE.MeshStandardMaterial({
-    color: 0x1a2a4a,
-    metalness: 0.6,
-    roughness: 0.2,
-  });
-  const glass = new THREE.Mesh(glassGeo, glassMat);
-  glass.position.set(0, 1.15, KEKE_DEPTH / 2 - 0.02);
-  group.add(glass);
-
-  const glassBack = new THREE.Mesh(glassGeo, glassMat);
-  glassBack.position.set(0, 1.15, -KEKE_DEPTH / 2 + 0.02);
-  group.add(glassBack);
-
-  const wheelGeo = new THREE.CylinderGeometry(0.28, 0.28, 0.15, 12);
-  const wheelMat = new THREE.MeshStandardMaterial({ color: 0x111111 });
-
-  const wf = new THREE.Mesh(wheelGeo, wheelMat);
-  wf.rotation.z = Math.PI / 2;
-  wf.position.set(0, 0.28, KEKE_DEPTH / 2 - 0.3);
-  group.add(wf);
-
-  const wl = new THREE.Mesh(wheelGeo, wheelMat);
-  wl.rotation.z = Math.PI / 2;
-  wl.position.set(-KEKE_WIDTH / 2 + 0.1, 0.28, -KEKE_DEPTH / 2 + 0.3);
-  group.add(wl);
-
-  const wr = new THREE.Mesh(wheelGeo, wheelMat);
-  wr.rotation.z = Math.PI / 2;
-  wr.position.set(KEKE_WIDTH / 2 - 0.1, 0.28, -KEKE_DEPTH / 2 + 0.3);
-  group.add(wr);
-
-  return group;
-}
+// NOTE: makeKekeNapep() is defined in Part 1 (in the beautiful-colored section)
 
 function makeObstacleMesh(type) {
   let group;
@@ -2269,6 +2434,8 @@ function startRun() {
   powerups.forEach((p) => scene.remove(p));
   powerups.length = 0;
 
+  clearTraffic();
+
   for (const name of POWERUP_TYPES) deactivatePowerup(name);
   updatePowerupHud();
 
@@ -2315,6 +2482,8 @@ function goToMainMenu() {
   coins.length = 0;
   powerups.forEach((p) => scene.remove(p));
   powerups.length = 0;
+
+  clearTraffic();
 
   for (const name of POWERUP_TYPES) deactivatePowerup(name);
   updatePowerupHud();
@@ -2600,6 +2769,7 @@ function animate() {
 
     updateSections(effectiveSpeed, delta);
     updateFogTransition(delta);
+    updateTraffic(delta);
 
     runTime += delta;
     worldSpeed = Math.min(
