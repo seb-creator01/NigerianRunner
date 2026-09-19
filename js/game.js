@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { RGBELoader } from 'three/addons/loaders/RGBELoader.js';
 
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
@@ -32,7 +33,6 @@ renderer.shadowMap.enabled = false;
 // 2. SCENE + FOG
 // ---------------------------------------------------------------
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0xf5c98a);
 
 const OPEN_FOG_NEAR = 35;
 const OPEN_FOG_FAR = 70;
@@ -41,7 +41,24 @@ const TUNNEL_FOG_FAR = 45;
 const BEACH_FOG_NEAR = 40;
 const BEACH_FOG_FAR = 80;
 
+// Fallback color in case HDRI fails to load
+scene.background = new THREE.Color(0xf5c98a);
 scene.fog = new THREE.Fog(0xf5c98a, OPEN_FOG_NEAR, OPEN_FOG_FAR);
+
+// HDRI ENVIRONMENT LIGHTING
+const HDRI_URL =
+  'https://seb-creator01.github.io/NigerianRunner/venice_sunset_1k.hdr';
+
+const hdriLoader = new RGBELoader();
+hdriLoader.load(HDRI_URL, (hdrTexture) => {
+  hdrTexture.mapping = THREE.EquirectangularReflectionMapping;
+  scene.environment = hdrTexture;
+  scene.background = hdrTexture;
+  scene.environmentIntensity = 0.9;
+  console.log('HDRI environment loaded');
+}, undefined, (err) => {
+  console.warn('HDRI failed to load — using flat color fallback:', err);
+});
 
 // ---------------------------------------------------------------
 // 3. CAMERA
@@ -84,12 +101,12 @@ fxaaPass.material.uniforms['resolution'].value.y =
 composer.addPass(fxaaPass);
 
 // ---------------------------------------------------------------
-// 4. LIGHTING
+// 4. LIGHTING — reduced because HDRI now provides most light
 // ---------------------------------------------------------------
-const ambientLight = new THREE.AmbientLight(0xffe8c0, 0.9);
+const ambientLight = new THREE.AmbientLight(0xffe8c0, 0.15);
 scene.add(ambientLight);
 
-const sunLight = new THREE.DirectionalLight(0xfff1d0, 1.1);
+const sunLight = new THREE.DirectionalLight(0xfff1d0, 0.4);
 sunLight.position.set(5, 10, 5);
 scene.add(sunLight);
 
@@ -223,7 +240,6 @@ const SECTION_COUNT = 3;
 
 const sections = [];
 
-// All non-fork section types
 const SECTION_TYPES = ['city', 'tunnel', 'bridge', 'railway', 'rural', 'beach'];
 let currentSectionType = 'city';
 let lastSectionType = 'city';
@@ -708,7 +724,6 @@ const SIGN_DATA = [
   { text: 'WELCOME',       bg: '#d94f2b', fg: '#fff5dd' },
 ];
 
-// ---------- Populate section — dispatcher for all types ----------
 function populateSection(sectionGroup, type, centerZ) {
   while (sectionGroup.children.length > 0) {
     sectionGroup.remove(sectionGroup.children[0]);
@@ -905,8 +920,8 @@ let targetFogNear = OPEN_FOG_NEAR;
 let targetFogFar = OPEN_FOG_FAR;
 let targetFogColor = 0xf5c98a;
 let targetBgColor = 0xf5c98a;
-let targetAmbient = 0.9;
-let targetSun = 1.1;
+let targetAmbient = 0.15;
+let targetSun = 0.4;
 
 function applyFogForType(type) {
   if (type === 'tunnel') {
@@ -914,36 +929,36 @@ function applyFogForType(type) {
     targetFogFar = TUNNEL_FOG_FAR;
     targetFogColor = 0x1a1208;
     targetBgColor = 0x1a1208;
-    targetAmbient = 0.4;
-    targetSun = 0.15;
+    targetAmbient = 0.1;
+    targetSun = 0.05;
   } else if (type === 'beach') {
     targetFogNear = BEACH_FOG_NEAR;
     targetFogFar = BEACH_FOG_FAR;
     targetFogColor = 0x9fd0e8;
     targetBgColor = 0x9fd0e8;
-    targetAmbient = 1.0;
-    targetSun = 1.3;
+    targetAmbient = 0.22;
+    targetSun = 0.5;
   } else if (type === 'rural') {
     targetFogNear = 40;
     targetFogFar = 85;
     targetFogColor = 0xf0d8a0;
     targetBgColor = 0xf0d8a0;
-    targetAmbient = 0.95;
-    targetSun = 1.2;
+    targetAmbient = 0.18;
+    targetSun = 0.45;
   } else if (type === 'bridge') {
     targetFogNear = 40;
     targetFogFar = 80;
     targetFogColor = 0xc8dce8;
     targetBgColor = 0xc8dce8;
-    targetAmbient = 0.85;
-    targetSun = 1.0;
+    targetAmbient = 0.15;
+    targetSun = 0.42;
   } else {
     targetFogNear = OPEN_FOG_NEAR;
     targetFogFar = OPEN_FOG_FAR;
     targetFogColor = 0xf5c98a;
     targetBgColor = 0xf5c98a;
-    targetAmbient = 0.9;
-    targetSun = 1.1;
+    targetAmbient = 0.15;
+    targetSun = 0.4;
   }
 }
 
@@ -954,7 +969,6 @@ function updateFogTransition(delta) {
   scene.fog.far += (targetFogFar - scene.fog.far) * t;
 
   scene.fog.color.lerp(new THREE.Color(targetFogColor), t);
-  scene.background.lerp(new THREE.Color(targetBgColor), t);
 
   ambientLight.intensity += (targetAmbient - ambientLight.intensity) * t;
   sunLight.intensity += (targetSun - sunLight.intensity) * t;
@@ -1023,7 +1037,6 @@ function updateSections(effectiveSpeed, delta) {
     forkChoice = null;
   }
 
-  // Water plane visibility for bridge/beach
   const nearestSection = sections.reduce((closest, s) => {
     return Math.abs(s.position.z) < Math.abs(closest.position.z) ? s : closest;
   }, sections[0]);
