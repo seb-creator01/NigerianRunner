@@ -2927,8 +2927,10 @@ function animate() {
     ? (forkResolved ? 'fork(' + forkChoice + ')' : 'fork(!)')
     : currentSectionType;
 
-    const animList = Object.keys(actions).join(',');
-  debug.textContent = animList || 'no anims';
+      // Show only animations matching "run" or "walk"
+  const animKeys = Object.keys(actions);
+  const runMatches = animKeys.filter(n => /run|walk|jog/i.test(n));
+  debug.textContent = 'runs: ' + (runMatches.join(',') || 'NONE');
 
   if (gfxEnabled || bloomEnabled) {
     composer.render();
