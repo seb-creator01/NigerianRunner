@@ -1904,7 +1904,7 @@ function updateSettingsUI() {
 const CHARACTER_URL = 'https://seb-creator01.github.io/NigerianRunner/UAL1_Standard.glb';
 
 const CHARACTER_SCALE = 1.15;
-const CHARACTER_ROTATION_Y = 0;
+const CHARACTER_ROTATION_Y = Math.PI;
 const ANIM_RUN = 'Jog_Fwd_Loop';
 
 const loader = new GLTFLoader();
