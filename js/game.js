@@ -1598,6 +1598,65 @@ let characterModel = null;
 let mixer = null;
 const actions = {};
 let currentAction = null;
+
+// ---------------------------------------------------------------
+// 7a. DUST PARTICLES
+// ---------------------------------------------------------------
+const DUST_COUNT = 30;
+const dustGeometry = new THREE.BufferGeometry();
+const dustPositions = new Float32Array(DUST_COUNT * 3);
+const dustLife = new Float32Array(DUST_COUNT);
+for (let i = 0; i < DUST_COUNT; i++) {
+  dustPositions[i * 3 + 0] = 0;
+  dustPositions[i * 3 + 1] = 0;
+  dustPositions[i * 3 + 2] = 0;
+  dustLife[i] = 0;
+}
+dustGeometry.setAttribute('position', new THREE.BufferAttribute(dustPositions, 3));
+
+const dustCanvas = document.createElement('canvas');
+dustCanvas.width = 64;
+dustCanvas.height = 64;
+const dustCtx = dustCanvas.getContext('2d');
+const dustGrad = dustCtx.createRadialGradient(32, 32, 0, 32, 32, 32);
+dustGrad.addColorStop(0.0, 'rgba(216, 176, 120, 1)');
+dustGrad.addColorStop(0.4, 'rgba(216, 176, 120, 0.6)');
+dustGrad.addColorStop(1.0, 'rgba(216, 176, 120, 0)');
+dustCtx.fillStyle = dustGrad;
+dustCtx.fillRect(0, 0, 64, 64);
+const dustTexture = new THREE.CanvasTexture(dustCanvas);
+
+const dustMaterial = new THREE.PointsMaterial({
+  size: 0.55,
+  map: dustTexture,
+  transparent: true,
+  opacity: 0.75,
+  depthWrite: false,
+  sizeAttenuation: true,
+  blending: THREE.NormalBlending,
+});
+const dustPoints = new THREE.Points(dustGeometry, dustMaterial);
+scene.add(dustPoints);
+
+let dustSpawnTimer = 0;
+
+function spawnDustPuff(x, y, z) {
+  for (let i = 0; i < DUST_COUNT; i++) {
+    if (dustLife[i] <= 0) {
+      dustPositions[i * 3 + 0] = x + (Math.random() - 0.5) * 0.4;
+      dustPositions[i * 3 + 1] = y + Math.random() * 0.2;
+      dustPositions[i * 3 + 2] = z + (Math.random() - 0.5) * 0.4;
+      dustLife[i] = 1.0;
+      dustGeometry.attributes.position.needsUpdate = true;
+      return;
+    }
+  }
+}
+
+let characterModel = null;
+let mixer = null;
+const actions = {};
+let currentAction = null;
 // ---------------------------------------------------------------
 // 7b. HAIR BUILDER (attaches to the model head)
 // ---------------------------------------------------------------
