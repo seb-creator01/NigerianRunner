@@ -1969,6 +1969,7 @@ loader.load(
     });
 
     console.log('Loaded animations:', Object.keys(actions));
+    flashHud('Anims: ' + Object.keys(actions).join(', '));
 
     if (actions[ANIM_RUN]) {
       currentAction = actions[ANIM_RUN];
