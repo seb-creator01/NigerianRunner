@@ -232,11 +232,96 @@ waterPlane.visible = false;
 scene.add(waterPlane);
 
 // ---------------------------------------------------------------
-// 6b. KEKE NAPEP — BEAUTIFUL COLORED VERSION
+// 6b. CHARACTER ROSTER — 4 Nigerian runners
 // ---------------------------------------------------------------
-// Colors and materials shared across all kekes
+// Each character has a name, gender, body scale, skin tone,
+// clothing colors, hair style, and a UI color for the selection screen.
+const CHARACTERS = [
+  {
+    id: 'kairo',
+    name: 'KAIRO',
+    tagline: 'Fast & Fearless',
+    gender: 'boy',
+    scale: 1.10,
+    skin: 0x8a5a3a,
+    shirt: 0x2b6bd9,   // blue
+    trousers: 0x1a2a4a, // navy
+    hairColor: 0x1a0f08,
+    hairStyle: 'shortafro',
+    uiColor: '#2b6bd9',
+  },
+  {
+    id: 'zayen',
+    name: 'ZAYEN',
+    tagline: 'Steady & Strong',
+    gender: 'boy',
+    scale: 1.05,
+    skin: 0x5a3010,    // very dark
+    shirt: 0x2b8d3a,   // green
+    trousers: 0x5a3a1a, // brown
+    hairColor: 0x0f0a05,
+    hairStyle: 'buzz',
+    uiColor: '#2b8d3a',
+  },
+  {
+    id: 'naya',
+    name: 'NAYA',
+    tagline: 'Bright & Bold',
+    gender: 'girl',
+    scale: 0.98,
+    skin: 0xa06030,    // light brown
+    shirt: 0xd94f2b,   // coral pink
+    trousers: 0x2b6bd9, // blue
+    hairColor: 0x0f0a05,
+    hairStyle: 'braids',
+    uiColor: '#d94f2b',
+  },
+  {
+    id: 'zuri',
+    name: 'ZURI',
+    tagline: 'Bold & Beautiful',
+    gender: 'girl',
+    scale: 0.95,
+    skin: 0x6b3f1f,    // dark brown
+    shirt: 0xf2c419,   // yellow
+    trousers: 0x1a1a1a, // black
+    hairColor: 0x0f0a05,
+    hairStyle: 'bigafro',
+    uiColor: '#f2c419',
+  },
+];
+
+// Default character (loads first every session unless user changes)
+const DEFAULT_CHARACTER_ID = 'kairo';
+const CHARACTER_STORAGE_KEY = 'nigerianRunner.selectedCharacter';
+
+// Read the currently-selected character from localStorage
+function getSelectedCharacterId() {
+  try {
+    const saved = localStorage.getItem(CHARACTER_STORAGE_KEY);
+    if (saved && CHARACTERS.some((c) => c.id === saved)) return saved;
+  } catch (e) {}
+  return DEFAULT_CHARACTER_ID;
+}
+
+function getSelectedCharacter() {
+  const id = getSelectedCharacterId();
+  return CHARACTERS.find((c) => c.id === id) || CHARACTERS[0];
+}
+
+function setSelectedCharacter(id) {
+  try {
+    localStorage.setItem(CHARACTER_STORAGE_KEY, id);
+  } catch (e) {}
+}
+
+let activeCharacter = getSelectedCharacter();
+
+// ---------------------------------------------------------------
+// 6c. KEKE NAPEP — BEAUTIFUL COLORED VERSION
+// ---------------------------------------------------------------
 const KEKE_COLORS = [
-  { body: 0xf2c419, roof: 0xf7d23c, name: 'yellow' },  // classic
+  { body: 0xf2c419, roof: 0xf7d23c, name: 'yellow' },
   { body: 0x2b8d3a, roof: 0x3aa84a, name: 'green' },
   { body: 0x2b6bd9, roof: 0x3a86f0, name: 'blue' },
   { body: 0xd94f2b, roof: 0xe85a3a, name: 'red' },
@@ -245,7 +330,6 @@ const KEKE_COLORS = [
   { body: 0xf2f2f2, roof: 0xffffff, name: 'white' },
 ];
 
-// Cached geometries and materials (shared to reduce GPU memory)
 const kekeGeometries = {
   body: new THREE.BoxGeometry(1.6, 1.5, 2.0),
   roof: new THREE.SphereGeometry(0.85, 12, 8),
@@ -287,34 +371,26 @@ const kekeMaterials = {
   }),
 };
 
-// Cache the color materials for each scheme
 const kekeColorMaterials = KEKE_COLORS.map((scheme) => ({
   body: new THREE.MeshStandardMaterial({ color: scheme.body }),
   roof: new THREE.MeshStandardMaterial({ color: scheme.roof }),
 }));
 
-// ---------- The main keke builder ----------
-// Now returns a BEAUTIFUL keke with 7 possible color schemes,
-// chrome details, headlights, license plate, mirrors, and a roof ornament.
 function makeKekeNapep() {
   const group = new THREE.Group();
 
-  // Pick a random color scheme
   const colorIndex = Math.floor(Math.random() * KEKE_COLORS.length);
   const colorMats = kekeColorMaterials[colorIndex];
 
-  // --- Main body ---
   const body = new THREE.Mesh(kekeGeometries.body, colorMats.body);
   body.position.y = 0.9;
   group.add(body);
 
-  // --- Rounded roof ---
   const roof = new THREE.Mesh(kekeGeometries.roof, colorMats.roof);
   roof.scale.set(1, 0.5, 1.05);
   roof.position.y = 1.65;
   group.add(roof);
 
-  // --- Roof ornament — small ridge on top (like real kekes) ---
   const roofOrnament = new THREE.Mesh(
     kekeGeometries.roofOrnament,
     kekeMaterials.bumper
@@ -322,17 +398,14 @@ function makeKekeNapep() {
   roofOrnament.position.y = 2.1;
   group.add(roofOrnament);
 
-  // --- Front windshield ---
   const glass = new THREE.Mesh(kekeGeometries.windshield, kekeMaterials.glass);
   glass.position.set(0, 1.15, 1.0 - 0.02);
   group.add(glass);
 
-  // --- Back windshield ---
   const glassBack = new THREE.Mesh(kekeGeometries.windshield, kekeMaterials.glass);
   glassBack.position.set(0, 1.15, -1.0 + 0.02);
   group.add(glassBack);
 
-  // --- Side windows (thin dark planes on both sides) ---
   const sideGlassGeo = new THREE.BoxGeometry(0.04, 0.5, 0.9);
   const sideGlassL = new THREE.Mesh(sideGlassGeo, kekeMaterials.glass);
   sideGlassL.position.set(-0.81, 1.15, 0);
@@ -342,7 +415,6 @@ function makeKekeNapep() {
   sideGlassR.position.set(0.81, 1.15, 0);
   group.add(sideGlassR);
 
-  // --- Wheels (3 wheels: single front, two rear) ---
   const wf = new THREE.Mesh(kekeGeometries.frontWheel, kekeMaterials.wheel);
   wf.rotation.z = Math.PI / 2;
   wf.position.set(0, 0.28, 0.7);
@@ -358,7 +430,6 @@ function makeKekeNapep() {
   wr.position.set(0.7, 0.28, -0.7);
   group.add(wr);
 
-  // --- Side mirrors (chrome) ---
   const mirrorL = new THREE.Mesh(kekeGeometries.sideMirror, kekeMaterials.chrome);
   mirrorL.position.set(-0.85, 1.35, 0.85);
   group.add(mirrorL);
@@ -367,7 +438,6 @@ function makeKekeNapep() {
   mirrorR.position.set(0.85, 1.35, 0.85);
   group.add(mirrorR);
 
-  // --- Headlights ---
   const headlightGeo = kekeGeometries.headlight;
   const headlightL = new THREE.Mesh(headlightGeo, kekeMaterials.headlight);
   headlightL.position.set(-0.5, 0.65, 1.02);
@@ -377,19 +447,16 @@ function makeKekeNapep() {
   headlightR.position.set(0.5, 0.65, 1.02);
   group.add(headlightR);
 
-  // --- License plate (front) ---
   const plateGeo = kekeGeometries.licensePlate;
   const plate = new THREE.Mesh(plateGeo, kekeMaterials.licensePlate);
   plate.position.set(0, 0.45, 1.02);
   group.add(plate);
 
-  // --- Front bumper (dark bar at base) ---
   const bumperGeo = kekeGeometries.bumper;
   const bumper = new THREE.Mesh(bumperGeo, kekeMaterials.bumper);
   bumper.position.set(0, 0.3, 1.0);
   group.add(bumper);
 
-  // --- Back bumper ---
   const bumperBack = new THREE.Mesh(bumperGeo, kekeMaterials.bumper);
   bumperBack.position.set(0, 0.3, -1.0);
   group.add(bumperBack);
@@ -398,7 +465,7 @@ function makeKekeNapep() {
 }
 
 // ---------------------------------------------------------------
-// 6c. SECTION SYSTEM
+// 6d. SECTION SYSTEM
 // ---------------------------------------------------------------
 const SECTION_LENGTH = 100;
 const SECTION_COUNT = 3;
@@ -632,7 +699,7 @@ function buildPaintedWall(width, x, z) {
   return group;
 }
 
-// ---------- People ----------
+// ---------- People (roadside crowd) ----------
 const PEOPLE_SKIN_COLORS = [
   0x8a5a3a, 0x6b3f1f, 0xa06030, 0x5a3010, 0x7a4a20,
 ];
@@ -1008,23 +1075,19 @@ const SIGN_DATA = [
 ];
 
 // ---------------------------------------------------------------
-// 6d. BACKGROUND TRAFFIC SYSTEM
+// 6e. BACKGROUND TRAFFIC SYSTEM
 // ---------------------------------------------------------------
-// Kekes drive on background lanes OUTSIDE the barriers. They don't
-// interact with the player at all — pure atmosphere.
-
 const TRAFFIC_LANES_X = [
-  -ROAD_WIDTH / 2 - 3.0,  // far left background
-   ROAD_WIDTH / 2 + 3.0,  // far right background
+  -ROAD_WIDTH / 2 - 3.0,
+   ROAD_WIDTH / 2 + 3.0,
 ];
 
 const trafficGroup = new THREE.Group();
 scene.add(trafficGroup);
 
-// Track active traffic kekes
 const trafficKekes = [];
-const TRAFFIC_MAX = 5;          // max simultaneous on screen
-const TRAFFIC_SPAWN_INTERVAL = 2.5;  // seconds between spawns
+const TRAFFIC_MAX = 5;
+const TRAFFIC_SPAWN_INTERVAL = 2.5;
 let trafficSpawnTimer = 0;
 
 function spawnTrafficKeke() {
@@ -1033,15 +1096,12 @@ function spawnTrafficKeke() {
   const laneIndex = Math.floor(Math.random() * TRAFFIC_LANES_X.length);
   const laneX = TRAFFIC_LANES_X[laneIndex];
 
-  // Direction: on left lane, driving forward (toward -z, i.e., same as player)
-  // On right lane, driving backward (toward +z, i.e., opposite)
   const direction = laneIndex === 0 ? -1 : 1;
   const baseSpeed = 8 + Math.random() * 10;
   const speed = baseSpeed * direction;
 
   const keke = makeKekeNapep();
 
-  // Face the direction of travel
   keke.rotation.y = direction > 0 ? Math.PI : 0;
 
   const startZ = direction > 0 ? -180 : 30;
@@ -1055,19 +1115,16 @@ function spawnTrafficKeke() {
 }
 
 function updateTraffic(delta) {
-  // Spawn new kekes over time
   trafficSpawnTimer += delta;
   if (trafficSpawnTimer >= TRAFFIC_SPAWN_INTERVAL) {
     trafficSpawnTimer = 0;
     spawnTrafficKeke();
   }
 
-  // Move each traffic keke and recycle when off-screen
   for (let i = trafficKekes.length - 1; i >= 0; i--) {
     const keke = trafficKekes[i];
     keke.position.z += keke.userData.speed * delta;
 
-    // Recycle if too far past the camera or too far behind
     if (keke.position.z > 40 || keke.position.z < -220) {
       trafficGroup.remove(keke);
       trafficKekes.splice(i, 1);
@@ -1144,7 +1201,6 @@ function populateSection(sectionGroup, type, centerZ) {
       }
     }
 
-    // People on the sidewalks
     for (let side of [-1, 1]) {
       const peopleCount = 4 + Math.floor(Math.random() * 4);
       for (let i = 0; i < peopleCount; i++) {
@@ -1538,61 +1594,163 @@ magnetRing.position.y = 0.6;
 magnetRing.visible = false;
 player.add(magnetRing);
 
-const DUST_COUNT = 30;
-const dustGeometry = new THREE.BufferGeometry();
-const dustPositions = new Float32Array(DUST_COUNT * 3);
-const dustLife = new Float32Array(DUST_COUNT);
-for (let i = 0; i < DUST_COUNT; i++) {
-  dustPositions[i * 3 + 0] = 0;
-  dustPositions[i * 3 + 1] = 0;
-  dustPositions[i * 3 + 2] = 0;
-  dustLife[i] = 0;
-}
-dustGeometry.setAttribute('position', new THREE.BufferAttribute(dustPositions, 3));
+// ---------------------------------------------------------------
+// 7b. HAIR BUILDER (attaches to the model head)
+// ---------------------------------------------------------------
+// We don't have a head bone reference from the loaded model,
+// so we attach hair to the player group as a separate mesh
+// positioned at the top of the character.
+function buildHair(style, color) {
+  const group = new THREE.Group();
+  const hairMat = new THREE.MeshStandardMaterial({
+    color: color,
+    roughness: 0.8,
+    metalness: 0.1,
+  });
 
-const dustCanvas = document.createElement('canvas');
-dustCanvas.width = 64;
-dustCanvas.height = 64;
-const dustCtx = dustCanvas.getContext('2d');
-const dustGrad = dustCtx.createRadialGradient(32, 32, 0, 32, 32, 32);
-dustGrad.addColorStop(0.0, 'rgba(216, 176, 120, 1)');
-dustGrad.addColorStop(0.4, 'rgba(216, 176, 120, 0.6)');
-dustGrad.addColorStop(1.0, 'rgba(216, 176, 120, 0)');
-dustCtx.fillStyle = dustGrad;
-dustCtx.fillRect(0, 0, 64, 64);
-const dustTexture = new THREE.CanvasTexture(dustCanvas);
+  if (style === 'shortafro') {
+    const geo = new THREE.SphereGeometry(0.16, 12, 10);
+    const hair = new THREE.Mesh(geo, hairMat);
+    hair.scale.set(1, 0.8, 1);
+    hair.position.y = 1.62;
+    group.add(hair);
+  } else if (style === 'buzz') {
+    const geo = new THREE.SphereGeometry(0.15, 12, 10);
+    const hair = new THREE.Mesh(geo, hairMat);
+    hair.scale.set(1, 0.5, 1);
+    hair.position.y = 1.6;
+    group.add(hair);
+  } else if (style === 'braids') {
+    const capGeo = new THREE.SphereGeometry(0.16, 12, 10);
+    const cap = new THREE.Mesh(capGeo, hairMat);
+    cap.scale.set(1, 0.85, 1);
+    cap.position.y = 1.62;
+    group.add(cap);
 
-const dustMaterial = new THREE.PointsMaterial({
-  size: 0.55,
-  map: dustTexture,
-  transparent: true,
-  opacity: 0.75,
-  depthWrite: false,
-  sizeAttenuation: true,
-  blending: THREE.NormalBlending,
-});
-const dustPoints = new THREE.Points(dustGeometry, dustMaterial);
-scene.add(dustPoints);
-
-let dustSpawnTimer = 0;
-
-function spawnDustPuff(x, y, z) {
-  for (let i = 0; i < DUST_COUNT; i++) {
-    if (dustLife[i] <= 0) {
-      dustPositions[i * 3 + 0] = x + (Math.random() - 0.5) * 0.4;
-      dustPositions[i * 3 + 1] = y + Math.random() * 0.2;
-      dustPositions[i * 3 + 2] = z + (Math.random() - 0.5) * 0.4;
-      dustLife[i] = 1.0;
-      dustGeometry.attributes.position.needsUpdate = true;
-      return;
+    // 6 braids hanging down the back
+    for (let i = 0; i < 6; i++) {
+      const bGeo = new THREE.CylinderGeometry(0.025, 0.02, 0.4, 6);
+      const braid = new THREE.Mesh(bGeo, hairMat);
+      const angle = (i / 6) * Math.PI * 1.2 - Math.PI * 0.6;
+      braid.position.set(
+        Math.sin(angle) * 0.13,
+        1.35,
+        -0.05 - Math.cos(angle) * 0.1
+      );
+      braid.rotation.x = 0.15;
+      group.add(braid);
     }
+  } else if (style === 'bigafro') {
+    const geo = new THREE.SphereGeometry(0.22, 14, 12);
+    const hair = new THREE.Mesh(geo, hairMat);
+    hair.scale.set(1, 0.9, 1);
+    hair.position.y = 1.65;
+    group.add(hair);
   }
+
+  return group;
 }
 
-let characterModel = null;
-let mixer = null;
-const actions = {};
-let currentAction = null;
+// ---------------------------------------------------------------
+// 7c. APPLY CHARACTER LOOK — tints the model
+// ---------------------------------------------------------------
+// This runs after the GLTF is loaded. It tries to tint different
+// mesh parts based on their names, but if the rig is one single mesh
+// it falls back to tinting the whole thing with the skin color.
+function applyCharacterLook(character) {
+  if (!characterModel) return;
+
+  // Remove any existing hair
+  const existingHair = characterModel.getObjectByName('__hairGroup');
+  if (existingHair) {
+    characterModel.remove(existingHair);
+  }
+
+  // Update the base scale (for male/female size difference)
+  characterModel.scale.set(character.scale, character.scale, character.scale);
+
+  // Walk through all meshes and try to color them by name
+  const meshes = [];
+  characterModel.traverse((child) => {
+    if (child.isMesh && child.material) {
+      meshes.push(child);
+    }
+  });
+
+  // Try to identify parts by name
+  let bodyMesh = null;
+  let headMesh = null;
+  let legsMesh = null;
+  let feetMesh = null;
+
+  meshes.forEach((m) => {
+    const n = m.name.toLowerCase();
+    if (n.includes('head')) headMesh = m;
+    else if (n.includes('body') || n.includes('torso') || n.includes('chest')) bodyMesh = m;
+    else if (n.includes('leg')) legsMesh = m;
+    else if (n.includes('feet') || n.includes('foot')) feetMesh = m;
+  });
+
+  // If we found at least body + head, we can do proper separate coloring
+  if (bodyMesh || headMesh || legsMesh) {
+    if (bodyMesh) {
+      bodyMesh.material = new THREE.MeshStandardMaterial({
+        color: character.shirt,
+        roughness: 0.85,
+        metalness: 0.05,
+        skinning: true,
+      });
+    }
+    if (headMesh) {
+      headMesh.material = new THREE.MeshStandardMaterial({
+        color: character.skin,
+        roughness: 0.9,
+        metalness: 0.0,
+        skinning: true,
+      });
+    }
+    if (legsMesh) {
+      legsMesh.material = new THREE.MeshStandardMaterial({
+        color: character.trousers,
+        roughness: 0.9,
+        metalness: 0.0,
+        skinning: true,
+      });
+    }
+    if (feetMesh) {
+      feetMesh.material = new THREE.MeshStandardMaterial({
+        color: 0x1a1a1a,
+        roughness: 0.7,
+        metalness: 0.1,
+        skinning: true,
+      });
+    }
+  } else {
+    // Fallback: the rig is one mesh. Tint the whole thing with skin tone.
+    meshes.forEach((m) => {
+      if (m.name.toLowerCase().includes('joint') ||
+          m.name.toLowerCase().includes('marker') ||
+          m.material.name?.toLowerCase().includes('joint')) {
+        m.visible = false;
+        return;
+      }
+      m.material = new THREE.MeshStandardMaterial({
+        color: character.skin,
+        roughness: 0.9,
+        metalness: 0.05,
+        skinning: true,
+      });
+    });
+  }
+
+  // Add hair on top
+  const hair = buildHair(character.hairStyle, character.hairColor);
+  hair.name = '__hairGroup';
+  characterModel.add(hair);
+
+  // Store the character on the model for later reference
+  characterModel.userData.characterId = character.id;
+}
 
 // ---------------------------------------------------------------
 // 8. TUNING
@@ -1738,6 +1896,11 @@ const pauseMenuEl = document.getElementById('pause-menu');
 const gameOverEl = document.getElementById('game-over');
 const finalScoreEl = document.getElementById('final-score');
 const bestScoreEl = document.getElementById('best-score');
+const characterSelectEl = document.getElementById('character-select');
+const characterListEl = document.getElementById('character-list');
+const characterSelectBtn = document.getElementById('character-select-btn');
+const characterConfirmBtn = document.getElementById('character-confirm-btn');
+const characterSelectBackBtn = document.getElementById('character-select-back');
 
 const playBtn = document.getElementById('play-btn');
 const settingsBtn = document.getElementById('settings-btn');
@@ -1763,8 +1926,9 @@ function showScreen(el) {
     settingsMenuEl,
     pauseMenuEl,
     gameOverEl,
+    characterSelectEl,
   ].forEach((o) => {
-    o.classList.add('hidden');
+    if (o) o.classList.add('hidden');
   });
   if (el) el.classList.remove('hidden');
 }
@@ -1778,7 +1942,76 @@ function updatePauseBtnVisibility() {
 }
 
 // ---------------------------------------------------------------
-// 12b. POWER-UP HUD
+// 12b. CHARACTER SELECTION SCREEN
+// ---------------------------------------------------------------
+let pendingCharacter = activeCharacter; // what's currently highlighted
+
+function buildCharacterCards() {
+  characterListEl.innerHTML = '';
+
+  CHARACTERS.forEach((char) => {
+    const card = document.createElement('div');
+    card.className = 'character-card';
+    card.dataset.charId = char.id;
+
+    if (char.id === pendingCharacter.id) {
+      card.classList.add('selected');
+    }
+
+    const portrait = document.createElement('div');
+    portrait.className = 'character-portrait';
+    portrait.style.background =
+      'radial-gradient(circle at 50% 30%, ' + char.uiColor + '55, ' + char.uiColor + '22)';
+    portrait.textContent = char.gender === 'girl' ? '👧' : '👦';
+
+    const name = document.createElement('div');
+    name.className = 'character-name';
+    name.textContent = char.name;
+
+    const tagline = document.createElement('div');
+    tagline.className = 'character-tagline';
+    tagline.textContent = char.tagline;
+
+    card.appendChild(portrait);
+    card.appendChild(name);
+    card.appendChild(tagline);
+
+    card.addEventListener('click', () => {
+      pendingCharacter = char;
+      document.querySelectorAll('.character-card').forEach((c) => {
+        c.classList.toggle('selected', c.dataset.charId === char.id);
+      });
+    });
+
+    characterListEl.appendChild(card);
+  });
+}
+
+function openCharacterSelect() {
+  pendingCharacter = activeCharacter;
+  buildCharacterCards();
+  gameState = 'characterSelect';
+  showScreen(characterSelectEl);
+  updatePauseBtnVisibility();
+}
+
+function confirmCharacterSelect() {
+  activeCharacter = pendingCharacter;
+  setSelectedCharacter(activeCharacter.id);
+
+  // Apply the new look
+  if (characterModel) {
+    applyCharacterLook(activeCharacter);
+  }
+
+  gameState = 'menu';
+  showScreen(mainMenuEl);
+  updatePauseBtnVisibility();
+  flashHud('You are ' + activeCharacter.name + '!');
+}
+
+// ---------------------------------------------------------------
+// 12c. POWER-UP HUD
 // ---------------------------------------------------------------
 const powerupHudItems = {};
 
@@ -1903,7 +2136,6 @@ function updateSettingsUI() {
 // ---------------------------------------------------------------
 const CHARACTER_URL = 'https://seb-creator01.github.io/NigerianRunner/UAL1_Standard.glb';
 
-const CHARACTER_SCALE = 1.15;
 const CHARACTER_ROTATION_Y = Math.PI;
 const ANIM_RUN = 'Jog_Fwd_Loop';
 
@@ -1933,6 +2165,11 @@ function finishLoading() {
   playBtn.disabled = false;
   gameState = 'menu';
 
+  // Apply the default/selected character's look
+  if (characterModel) {
+    applyCharacterLook(activeCharacter);
+  }
+
   loadingScreenEl.classList.add('fade-out');
   setTimeout(() => {
     loadingScreenEl.classList.remove('fade-out');
@@ -1946,18 +2183,13 @@ loader.load(
   (gltf) => {
     characterModel = gltf.scene;
 
-    characterModel.scale.set(CHARACTER_SCALE, CHARACTER_SCALE, CHARACTER_SCALE);
     characterModel.position.y = 0;
     characterModel.rotation.y = CHARACTER_ROTATION_Y;
-
-    characterModel.traverse((child) => {
-      if (child.isMesh && child.material) {
-        if (child.material.emissive) {
-          child.material.emissive.setHex(0x442200);
-          child.material.emissiveIntensity = 0.35;
-        }
-      }
-    });
+    characterModel.scale.set(
+      activeCharacter.scale,
+      activeCharacter.scale,
+      activeCharacter.scale
+    );
 
     player.add(characterModel);
     fallbackBox.visible = false;
@@ -1969,12 +2201,14 @@ loader.load(
     });
 
     console.log('Loaded animations:', Object.keys(actions));
-    flashHud('Anims: ' + Object.keys(actions).join(', '));
 
     if (actions[ANIM_RUN]) {
       currentAction = actions[ANIM_RUN];
       currentAction.play();
     }
+
+    // Apply the character's colors and hair
+    applyCharacterLook(activeCharacter);
 
     setLoadingProgress(100);
     setTimeout(finishLoading, 250);
@@ -2064,8 +2298,6 @@ function makeAwning() {
 
   return group;
 }
-
-// NOTE: makeKekeNapep() is defined in Part 1 (in the beautiful-colored section)
 
 function makeObstacleMesh(type) {
   let group;
@@ -2444,7 +2676,11 @@ function startRun() {
   player.position.set(LANE_X[STARTING_LANE], 0, 0);
   playerVisualY = 0;
   if (characterModel) {
-    characterModel.scale.y = CHARACTER_SCALE;
+    characterModel.scale.set(
+      activeCharacter.scale,
+      activeCharacter.scale,
+      activeCharacter.scale
+    );
   }
 
   isJumping = false;
@@ -2473,7 +2709,7 @@ function startRun() {
   gameState = 'playing';
   showScreen(null);
   updatePauseBtnVisibility();
-  flashHud('Go! 🏃');
+  flashHud('Go, ' + activeCharacter.name + '! 🏃');
 }
 
 function goToMainMenu() {
@@ -2491,7 +2727,13 @@ function goToMainMenu() {
 
   player.position.set(LANE_X[STARTING_LANE], 0, 0);
   playerVisualY = 0;
-  if (characterModel) characterModel.scale.y = CHARACTER_SCALE;
+  if (characterModel) {
+    characterModel.scale.set(
+      activeCharacter.scale,
+      activeCharacter.scale,
+      activeCharacter.scale
+    );
+  }
 
   isJumping = false;
   isSliding = false;
@@ -2547,6 +2789,26 @@ settingsBtn.addEventListener('click', () => {
 settingsBackBtn.addEventListener('click', () => {
   showScreen(mainMenuEl);
 });
+
+if (characterSelectBtn) {
+  characterSelectBtn.addEventListener('click', () => {
+    openCharacterSelect();
+  });
+}
+
+if (characterConfirmBtn) {
+  characterConfirmBtn.addEventListener('click', () => {
+    confirmCharacterSelect();
+  });
+}
+
+if (characterSelectBackBtn) {
+  characterSelectBackBtn.addEventListener('click', () => {
+    gameState = 'menu';
+    showScreen(mainMenuEl);
+    updatePauseBtnVisibility();
+  });
+}
 
 toggleSfxBtn.addEventListener('click', () => {
   sfxEnabled = !sfxEnabled;
@@ -2798,7 +3060,8 @@ function animate() {
     if (isSliding) {
       slideTimer -= delta;
       if (characterModel) {
-        const targetScaleY = CHARACTER_SCALE * SLIDE_HEIGHT_SCALE;
+        const baseScale = activeCharacter.scale;
+        const targetScaleY = baseScale * SLIDE_HEIGHT_SCALE;
         characterModel.scale.y +=
           (targetScaleY - characterModel.scale.y) * 16 * delta;
       }
@@ -2807,8 +3070,9 @@ function animate() {
       }
     } else {
       if (characterModel) {
+        const baseScale = activeCharacter.scale;
         characterModel.scale.y +=
-          (CHARACTER_SCALE - characterModel.scale.y) * 16 * delta;
+          (baseScale - characterModel.scale.y) * 16 * delta;
       }
     }
 
@@ -2923,14 +3187,12 @@ function animate() {
     checkPowerupPickups();
   }
 
-    const forkLabel = forkActive
-    ? (forkResolved ? 'fork(' + forkChoice + ')' : 'fork(!)')
-    : currentSectionType;
   debug.textContent =
     'state: ' + gameState +
     ' | L' + speedLevel +
-    ' | ' + (characterModel ? 'model✓' : 'box');
-      
+    ' | ' + (characterModel ? 'model✓' : 'box') +
+    ' | ' + activeCharacter.name;
+
   if (gfxEnabled || bloomEnabled) {
     composer.render();
   } else {
