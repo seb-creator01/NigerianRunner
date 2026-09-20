@@ -1905,7 +1905,7 @@ const CHARACTER_URL = 'https://seb-creator01.github.io/NigerianRunner/UAL1_Stand
 
 const CHARACTER_SCALE = 1.15;
 const CHARACTER_ROTATION_Y = 0;
-const ANIM_RUN = 'Run';
+const ANIM_RUN = 'Jog_Fwd_Loop';
 
 const loader = new GLTFLoader();
 
@@ -2926,12 +2926,11 @@ function animate() {
     const forkLabel = forkActive
     ? (forkResolved ? 'fork(' + forkChoice + ')' : 'fork(!)')
     : currentSectionType;
-
-      // Show only animations matching "run" or "walk"
-  const animKeys = Object.keys(actions);
-  const runMatches = animKeys.filter(n => /run|walk|jog/i.test(n));
-  debug.textContent = 'runs: ' + (runMatches.join(',') || 'NONE');
-
+  debug.textContent =
+    'state: ' + gameState +
+    ' | L' + speedLevel +
+    ' | ' + (characterModel ? 'model✓' : 'box');
+      
   if (gfxEnabled || bloomEnabled) {
     composer.render();
   } else {
