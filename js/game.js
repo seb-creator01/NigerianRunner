@@ -2774,6 +2774,7 @@ function resumeGame() {
 // 22. BUTTON WIRING
 // ---------------------------------------------------------------
 playBtn.addEventListener('click', () => {
+  alert('PLAY tapped! characterReady = ' + characterReady);
   if (!characterReady) return;
   initAudio();
   unlockAudio();
