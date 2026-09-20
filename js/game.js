@@ -1653,10 +1653,7 @@ function spawnDustPuff(x, y, z) {
   }
 }
 
-let characterModel = null;
-let mixer = null;
-const actions = {};
-let currentAction = null;
+
 // ---------------------------------------------------------------
 // 7b. HAIR BUILDER (attaches to the model head)
 // ---------------------------------------------------------------
