@@ -2927,12 +2927,8 @@ function animate() {
     ? (forkResolved ? 'fork(' + forkChoice + ')' : 'fork(!)')
     : currentSectionType;
 
-  const animList = Object.keys(actions).join(',');
-  debug.textContent =
-    'state: ' + gameState +
-    ' | L' + speedLevel +
-    ' | ' + (characterModel ? 'model✓' : 'box') +
-    ' | anims: ' + (animList || 'none');
+    const animList = Object.keys(actions).join(',');
+  debug.textContent = animList || 'no anims';
 
   if (gfxEnabled || bloomEnabled) {
     composer.render();
