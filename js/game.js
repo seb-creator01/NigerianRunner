@@ -1901,10 +1901,10 @@ function updateSettingsUI() {
 // ---------------------------------------------------------------
 // 14. CHARACTER LOADING
 // ---------------------------------------------------------------
-const CHARACTER_URL = 'https://seb-creator01.github.io/NigerianRunner/Casual_2.gltf';
+const CHARACTER_URL = 'https://seb-creator01.github.io/NigerianRunner/arissa.glb';
 
 const CHARACTER_SCALE = 1.15;
-const CHARACTER_ROTATION_Y = 0;
+const CHARACTER_ROTATION_Y = Math.PI;
 const ANIM_RUN = 'Run';
 
 const loader = new GLTFLoader();
