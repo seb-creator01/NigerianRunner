@@ -1594,6 +1594,10 @@ magnetRing.position.y = 0.6;
 magnetRing.visible = false;
 player.add(magnetRing);
 
+let characterModel = null;
+let mixer = null;
+const actions = {};
+let currentAction = null;
 // ---------------------------------------------------------------
 // 7b. HAIR BUILDER (attaches to the model head)
 // ---------------------------------------------------------------
@@ -2141,7 +2145,7 @@ const ANIM_RUN = 'Jog_Fwd_Loop';
 
 const loader = new GLTFLoader();
 
-let characterReady = true;
+let characterReady = false;
 
 playBtn.disabled = true;
 
