@@ -2923,16 +2923,16 @@ function animate() {
     checkPowerupPickups();
   }
 
-  const forkLabel = forkActive
+    const forkLabel = forkActive
     ? (forkResolved ? 'fork(' + forkChoice + ')' : 'fork(!)')
     : currentSectionType;
 
+  const animList = Object.keys(actions).join(',');
   debug.textContent =
     'state: ' + gameState +
     ' | L' + speedLevel +
-    ' | spd: ' + worldSpeed.toFixed(1) +
-    ' | ' + forkLabel +
-    ' | ' + (characterModel ? 'model✓' : 'box');
+    ' | ' + (characterModel ? 'model✓' : 'box') +
+    ' | anims: ' + (animList || 'none');
 
   if (gfxEnabled || bloomEnabled) {
     composer.render();
