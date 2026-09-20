@@ -2657,58 +2657,63 @@ function gameOver() {
 // 21. START / RESET / PAUSE / MENU
 // ---------------------------------------------------------------
 function startRun() {
-  obstacles.forEach((o) => scene.remove(o));
-  obstacles.length = 0;
+  try {
+    obstacles.forEach((o) => scene.remove(o));
+    obstacles.length = 0;
 
-  coins.forEach((c) => scene.remove(c));
-  coins.length = 0;
+    coins.forEach((c) => scene.remove(c));
+    coins.length = 0;
 
-  powerups.forEach((p) => scene.remove(p));
-  powerups.length = 0;
+    powerups.forEach((p) => scene.remove(p));
+    powerups.length = 0;
 
-  clearTraffic();
+    clearTraffic();
 
-  for (const name of POWERUP_TYPES) deactivatePowerup(name);
-  updatePowerupHud();
+    for (const name of POWERUP_TYPES) deactivatePowerup(name);
+    updatePowerupHud();
 
-  currentLane = STARTING_LANE;
-  player.position.set(LANE_X[STARTING_LANE], 0, 0);
-  playerVisualY = 0;
-  if (characterModel) {
-    characterModel.scale.set(
-      activeCharacter.scale,
-      activeCharacter.scale,
-      activeCharacter.scale
-    );
+    currentLane = STARTING_LANE;
+    player.position.set(LANE_X[STARTING_LANE], 0, 0);
+    playerVisualY = 0;
+    if (characterModel) {
+      characterModel.scale.set(
+        activeCharacter.scale,
+        activeCharacter.scale,
+        activeCharacter.scale
+      );
+    }
+
+    isJumping = false;
+    velocityY = 0;
+    isSliding = false;
+    slideTimer = 0;
+    spawnTimer = 0;
+    coinSpawnTimer = 0;
+    powerupSpawnTimer = -4;
+    score = 0;
+
+    for (let i = 0; i < DUST_COUNT; i++) dustLife[i] = 0;
+    dustGeometry.attributes.position.needsUpdate = true;
+
+    worldSpeed = START_WORLD_SPEED;
+    runTime = 0;
+    speedLevel = 1;
+
+    initializeSections();
+
+    scoreEl.textContent = 'Score: 0';
+
+    spawnTimer = -1.2;
+    coinSpawnTimer = -0.6;
+
+    gameState = 'playing';
+    showScreen(null);
+    updatePauseBtnVisibility();
+    flashHud('Go, ' + activeCharacter.name + '! 🏃');
+  } catch (err) {
+    alert('startRun crashed: ' + err.message);
+    console.error(err);
   }
-
-  isJumping = false;
-  velocityY = 0;
-  isSliding = false;
-  slideTimer = 0;
-  spawnTimer = 0;
-  coinSpawnTimer = 0;
-  powerupSpawnTimer = -4;
-  score = 0;
-
-  for (let i = 0; i < DUST_COUNT; i++) dustLife[i] = 0;
-  dustGeometry.attributes.position.needsUpdate = true;
-
-  worldSpeed = START_WORLD_SPEED;
-  runTime = 0;
-  speedLevel = 1;
-
-  initializeSections();
-
-  scoreEl.textContent = 'Score: 0';
-
-  spawnTimer = -1.2;
-  coinSpawnTimer = -0.6;
-
-  gameState = 'playing';
-  showScreen(null);
-  updatePauseBtnVisibility();
-  flashHud('Go, ' + activeCharacter.name + '! 🏃');
 }
 
 function goToMainMenu() {
@@ -2774,13 +2779,19 @@ function resumeGame() {
 // 22. BUTTON WIRING
 // ---------------------------------------------------------------
 playBtn.addEventListener('click', () => {
-  alert('PLAY tapped! characterReady = ' + characterReady);
-  if (!characterReady) return;
-  initAudio();
-  unlockAudio();
-  startRun();
+  if (!characterReady) {
+    alert('Character not ready yet');
+    return;
+  }
+  try {
+    initAudio();
+    unlockAudio();
+    startRun();
+  } catch (err) {
+    alert('PLAY crashed: ' + err.message);
+    console.error('PLAY error:', err);
+  }
 });
-
 settingsBtn.addEventListener('click', () => {
   updateSettingsUI();
   showScreen(settingsMenuEl);
