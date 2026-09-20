@@ -2165,11 +2165,6 @@ function finishLoading() {
   playBtn.disabled = false;
   gameState = 'menu';
 
-  // Apply the default/selected character's look
-  if (characterModel) {
-    applyCharacterLook(activeCharacter);
-  }
-
   loadingScreenEl.classList.add('fade-out');
   setTimeout(() => {
     loadingScreenEl.classList.remove('fade-out');
