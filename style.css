@@ -86,7 +86,7 @@ html, body {
   display: none;
 }
 
-/* ---------- Power-up HUD (top-left) ---------- */
+/* ---------- Power-up HUD ---------- */
 #powerup-hud {
   position: fixed;
   top: 80px;
@@ -112,10 +112,7 @@ html, body {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
 }
 
-.powerup-icon {
-  font-size: 20px;
-  line-height: 1;
-}
+.powerup-icon { font-size: 20px; line-height: 1; }
 
 .powerup-bar-outer {
   flex: 1;
@@ -132,18 +129,10 @@ html, body {
   transition: width 0.1s linear;
 }
 
-.powerup-item.shield {
-  border: 1px solid rgba(80, 180, 255, 0.8);
-}
-.powerup-item.magnet {
-  border: 1px solid rgba(255, 200, 60, 0.8);
-}
-.powerup-item.speed {
-  border: 1px solid rgba(255, 100, 100, 0.8);
-}
-.powerup-item.double {
-  border: 1px solid rgba(120, 220, 120, 0.8);
-}
+.powerup-item.shield { border: 1px solid rgba(80, 180, 255, 0.8); }
+.powerup-item.magnet { border: 1px solid rgba(255, 200, 60, 0.8); }
+.powerup-item.speed  { border: 1px solid rgba(255, 100, 100, 0.8); }
+.powerup-item.double { border: 1px solid rgba(120, 220, 120, 0.8); }
 
 /* ---------- Debug ---------- */
 #debug {
@@ -152,20 +141,16 @@ html, body {
   left: 50%;
   transform: translateX(-50%);
   color: #00ff00;
-  background: rgba(0, 0, 0, 0.85);
+  background: rgba(0, 0, 0, 0.7);
   padding: 6px 12px;
   border-radius: 6px;
   font-family: monospace;
-  font-size: 10px;
+  font-size: 11px;
   pointer-events: none;
   z-index: 10;
-  white-space: normal;
-  max-width: 95vw;
-  max-height: 40vh;
-  overflow: hidden;
-  text-align: center;
-  line-height: 1.3;
+  white-space: nowrap;
 }
+
 /* ---------- Overlays ---------- */
 .overlay {
   position: absolute;
@@ -328,12 +313,7 @@ html, body {
   left: -100%;
   width: 100%;
   height: 100%;
-  background: linear-gradient(
-    90deg,
-    transparent 0%,
-    rgba(255, 255, 255, 0.35) 50%,
-    transparent 100%
-  );
+  background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.35) 50%, transparent 100%);
   animation: shimmerSlide 2.4s ease-in-out infinite;
   z-index: 3;
   pointer-events: none;
@@ -378,12 +358,69 @@ html, body {
   font-weight: 700;
   letter-spacing: 2.5px;
   text-transform: uppercase;
-  text-shadow:
-    0 0 10px rgba(255, 180, 80, 0.5),
-    0 2px 6px rgba(0, 0, 0, 0.95);
+  text-shadow: 0 0 10px rgba(255, 180, 80, 0.5), 0 2px 6px rgba(0, 0, 0, 0.95);
   opacity: 1;
 }
 
+/* ---------- Character Selection ---------- */
+.character-list {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px;
+  margin: 12px 0;
+  max-width: 500px;
+  width: 100%;
+}
+
+.character-card {
+  width: 130px;
+  padding: 12px 8px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 2px solid rgba(255, 255, 255, 0.15);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-align: center;
+  user-select: none;
+}
+
+.character-card.selected {
+  background: rgba(255, 203, 107, 0.15);
+  border-color: #ffcb6b;
+  box-shadow: 0 0 20px rgba(255, 203, 107, 0.5);
+  transform: scale(1.05);
+}
+
+.character-portrait {
+  width: 80px;
+  height: 80px;
+  margin: 0 auto 8px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 40px;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+}
+
+.character-name {
+  color: #ffffff;
+  font-size: 16px;
+  font-weight: 900;
+  letter-spacing: 1.5px;
+  margin-bottom: 4px;
+}
+
+.character-tagline {
+  color: #ffcb6b;
+  font-size: 11px;
+  font-weight: normal;
+  letter-spacing: 0.5px;
+  opacity: 0.9;
+}
+
+/* ---------- Buttons ---------- */
 .big-btn {
   padding: 18px 56px;
   font-size: 24px;
@@ -417,6 +454,7 @@ html, body {
   border: 2px solid #ffcb6b;
   border-radius: 12px;
   cursor: pointer;
+  margin: 4px 0;
 }
 
 .small-btn:active {
@@ -424,6 +462,7 @@ html, body {
   background: rgba(255, 203, 107, 0.25);
 }
 
+/* ---------- Settings rows ---------- */
 .setting-row {
   display: flex;
   align-items: center;
