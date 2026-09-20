@@ -2141,7 +2141,7 @@ const ANIM_RUN = 'Jog_Fwd_Loop';
 
 const loader = new GLTFLoader();
 
-let characterReady = false;
+let characterReady = true;
 
 playBtn.disabled = true;
 
