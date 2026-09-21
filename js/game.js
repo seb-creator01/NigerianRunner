@@ -243,12 +243,14 @@ const CHARACTERS = [
     tagline: 'Fast & Fearless',
     gender: 'boy',
     scale: 1.10,
-    skin: 0x8a5a3a,
-    shirt: 0x2b6bd9,   // blue
-    trousers: 0x1a2a4a, // navy
+    skin: 0x8a5a3a,      // medium brown
+    shirt: 0xff3b30,     // bright red
+    trousers: 0x1a1a2a,  // dark navy
     hairColor: 0x1a0f08,
     hairStyle: 'shortafro',
-    uiColor: '#2b6bd9',
+    accessory: 'cap',    // red baseball cap
+    accessoryColor: 0xff3b30,
+    uiColor: '#ff3b30',
   },
   {
     id: 'zayen',
@@ -256,12 +258,14 @@ const CHARACTERS = [
     tagline: 'Steady & Strong',
     gender: 'boy',
     scale: 1.05,
-    skin: 0x5a3010,    // very dark
-    shirt: 0x2b8d3a,   // green
-    trousers: 0x5a3a1a, // brown
+    skin: 0x5a3010,      // very dark
+    shirt: 0x00a86b,     // emerald green
+    trousers: 0x3a2a1a,  // brown
     hairColor: 0x0f0a05,
     hairStyle: 'buzz',
-    uiColor: '#2b8d3a',
+    accessory: 'sunglasses',
+    accessoryColor: 0x0a0a0a,
+    uiColor: '#00a86b',
   },
   {
     id: 'naya',
@@ -269,12 +273,14 @@ const CHARACTERS = [
     tagline: 'Bright & Bold',
     gender: 'girl',
     scale: 0.98,
-    skin: 0xa06030,    // light brown
-    shirt: 0xd94f2b,   // coral pink
-    trousers: 0x2b6bd9, // blue
-    hairColor: 0x0f0a05,
+    skin: 0xa06030,      // light brown
+    shirt: 0xff6b9d,     // bright pink
+    trousers: 0x4a4a8a,  // blue-violet
+    hairColor: 0x1a0f08,
     hairStyle: 'braids',
-    uiColor: '#d94f2b',
+    accessory: 'headband',
+    accessoryColor: 0xffd700,
+    uiColor: '#ff6b9d',
   },
   {
     id: 'zuri',
@@ -282,12 +288,14 @@ const CHARACTERS = [
     tagline: 'Bold & Beautiful',
     gender: 'girl',
     scale: 0.95,
-    skin: 0x6b3f1f,    // dark brown
-    shirt: 0xf2c419,   // yellow
-    trousers: 0x1a1a1a, // black
-    hairColor: 0x0f0a05,
+    skin: 0x6b3f1f,      // dark brown
+    shirt: 0xffb300,     // golden yellow
+    trousers: 0x2a1a3a,  // deep purple
+    hairColor: 0x1a0f08,
     hairStyle: 'bigafro',
-    uiColor: '#f2c419',
+    accessory: 'flower',
+    accessoryColor: 0xff5b8a,
+    uiColor: '#ffb300',
   },
 ];
 
@@ -1660,7 +1668,6 @@ function spawnDustPuff(x, y, z) {
 // We don't have a head bone reference from the loaded model,
 // so we attach hair to the player group as a separate mesh
 // positioned at the top of the character.
-
 function buildHair(style, color) {
   const group = new THREE.Group();
   group.name = '__hairGroup';
@@ -1712,6 +1719,98 @@ function buildHair(style, color) {
 
   return group;
 }
+
+function buildAccessory(accessory, color) {
+  const group = new THREE.Group();
+  group.name = '__accessoryGroup';
+
+  if (!accessory) return group;
+
+  if (accessory === 'cap') {
+    // Baseball cap — dome + flat brim
+    const domeGeo = new THREE.SphereGeometry(0.22, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2);
+    const capMat = new THREE.MeshStandardMaterial({
+      color: color,
+      roughness: 0.6,
+      metalness: 0.1,
+    });
+    const dome = new THREE.Mesh(domeGeo, capMat);
+    dome.position.set(0, 0.18, 0);
+    group.add(dome);
+
+    const brimGeo = new THREE.BoxGeometry(0.32, 0.02, 0.18);
+    const brim = new THREE.Mesh(brimGeo, capMat);
+    brim.position.set(0, 0.18, 0.18);
+    group.add(brim);
+  } else if (accessory === 'sunglasses') {
+    // Two dark lenses + bridge
+    const lensGeo = new THREE.BoxGeometry(0.09, 0.05, 0.02);
+    const lensMat = new THREE.MeshStandardMaterial({
+      color: color,
+      roughness: 0.2,
+      metalness: 0.7,
+    });
+    const leftLens = new THREE.Mesh(lensGeo, lensMat);
+    leftLens.position.set(-0.07, 0.08, 0.16);
+    group.add(leftLens);
+
+    const rightLens = new THREE.Mesh(lensGeo, lensMat);
+    rightLens.position.set(0.07, 0.08, 0.16);
+    group.add(rightLens);
+
+    const bridgeGeo = new THREE.BoxGeometry(0.05, 0.015, 0.02);
+    const bridge = new THREE.Mesh(bridgeGeo, lensMat);
+    bridge.position.set(0, 0.08, 0.16);
+    group.add(bridge);
+  } else if (accessory === 'headband') {
+    // Torus ring around forehead
+    const bandGeo = new THREE.TorusGeometry(0.21, 0.025, 8, 24);
+    const bandMat = new THREE.MeshStandardMaterial({
+      color: color,
+      roughness: 0.7,
+      metalness: 0.2,
+    });
+    const band = new THREE.Mesh(bandGeo, bandMat);
+    band.rotation.x = Math.PI / 2;
+    band.position.set(0, 0.16, 0);
+    group.add(band);
+  } else if (accessory === 'flower') {
+    // Small flower on the side of the hair
+    const petalGeo = new THREE.SphereGeometry(0.045, 8, 6);
+    const petalMat = new THREE.MeshStandardMaterial({
+      color: color,
+      roughness: 0.5,
+      metalness: 0.1,
+      emissive: color,
+      emissiveIntensity: 0.15,
+    });
+    // 5 petals arranged in a circle
+    for (let i = 0; i < 5; i++) {
+      const angle = (i / 5) * Math.PI * 2;
+      const petal = new THREE.Mesh(petalGeo, petalMat);
+      petal.position.set(
+        0.22 + Math.cos(angle) * 0.05,
+        0.22 + Math.sin(angle) * 0.05,
+        0.05
+      );
+      group.add(petal);
+    }
+    // Center of flower
+    const centerGeo = new THREE.SphereGeometry(0.025, 8, 6);
+    const centerMat = new THREE.MeshStandardMaterial({
+      color: 0xffeb3b,
+      emissive: 0xffeb3b,
+      emissiveIntensity: 0.3,
+    });
+    const center = new THREE.Mesh(centerGeo, centerMat);
+    center.position.set(0.22, 0.22, 0.05);
+    group.add(center);
+  }
+
+  return group;
+}
+
+
 // ---------------------------------------------------------------
 // 7c. APPLY CHARACTER LOOK — tints the model
 // ---------------------------------------------------------------
@@ -1721,12 +1820,14 @@ function buildHair(style, color) {
 function applyCharacterLook(character) {
   if (!characterModel) return;
 
-   // Remove any existing hair — search the whole tree
-  const oldHair = [];
+     // Remove any existing hair + accessories — search the whole tree
+  const toRemove = [];
   characterModel.traverse((child) => {
-    if (child.name === '__hairGroup') oldHair.push(child);
+    if (child.name === '__hairGroup' || child.name === '__accessoryGroup') {
+      toRemove.push(child);
+    }
   });
-  oldHair.forEach((h) => {
+  toRemove.forEach((h) => {
     if (h.parent) h.parent.remove(h);
   });
 
@@ -1806,10 +1907,12 @@ function applyCharacterLook(character) {
       });
     });
   }
-
-    // Add hair on top — attach to head bone for natural movement
+  // Add hair + accessory on top — attach to head bone for natural movement
   const hair = buildHair(character.hairStyle, character.hairColor);
   hair.name = '__hairGroup';
+
+  const accessory = buildAccessory(character.accessory, character.accessoryColor);
+  accessory.name = '__accessoryGroup';
 
   let headBone = null;
   characterModel.traverse((child) => {
@@ -1824,13 +1927,18 @@ function applyCharacterLook(character) {
   if (headBone) {
     hair.position.set(0, 0.15, 0);
     headBone.add(hair);
+
+    accessory.position.set(0, 0.15, 0);
+    headBone.add(accessory);
   } else {
     characterModel.add(hair);
+    characterModel.add(accessory);
   }
 
   // Store the character on the model for later reference
   characterModel.userData.characterId = character.id;
 }
+    
 // ---------------------------------------------------------------
 // 8. TUNING
 // ---------------------------------------------------------------
