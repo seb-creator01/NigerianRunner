@@ -15,7 +15,7 @@ import { VignetteShader } from 'three/addons/shaders/VignetteShader.js';
 const container = document.getElementById('game-container');
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.0));
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.domElement.style.position = 'absolute';
 renderer.domElement.style.top = '0';
@@ -1660,8 +1660,11 @@ function spawnDustPuff(x, y, z) {
 // We don't have a head bone reference from the loaded model,
 // so we attach hair to the player group as a separate mesh
 // positioned at the top of the character.
+
 function buildHair(style, color) {
   const group = new THREE.Group();
+  group.name = '__hairGroup';
+
   const hairMat = new THREE.MeshStandardMaterial({
     color: color,
     roughness: 0.8,
@@ -1669,48 +1672,46 @@ function buildHair(style, color) {
   });
 
   if (style === 'shortafro') {
-    const geo = new THREE.SphereGeometry(0.16, 12, 10);
+    const geo = new THREE.SphereGeometry(0.22, 12, 10);
     const hair = new THREE.Mesh(geo, hairMat);
-    hair.scale.set(1, 0.8, 1);
-    hair.position.y = 1.62;
+    hair.scale.set(1, 0.85, 1);
+    hair.position.set(0, 0.15, 0);
     group.add(hair);
   } else if (style === 'buzz') {
-    const geo = new THREE.SphereGeometry(0.15, 12, 10);
+    const geo = new THREE.SphereGeometry(0.21, 12, 10);
     const hair = new THREE.Mesh(geo, hairMat);
-    hair.scale.set(1, 0.5, 1);
-    hair.position.y = 1.6;
+    hair.scale.set(1, 0.55, 1);
+    hair.position.set(0, 0.15, 0);
     group.add(hair);
   } else if (style === 'braids') {
-    const capGeo = new THREE.SphereGeometry(0.16, 12, 10);
+    const capGeo = new THREE.SphereGeometry(0.22, 12, 10);
     const cap = new THREE.Mesh(capGeo, hairMat);
-    cap.scale.set(1, 0.85, 1);
-    cap.position.y = 1.62;
+    cap.scale.set(1, 0.9, 1);
+    cap.position.set(0, 0.15, 0);
     group.add(cap);
 
-    // 6 braids hanging down the back
     for (let i = 0; i < 6; i++) {
-      const bGeo = new THREE.CylinderGeometry(0.025, 0.02, 0.4, 6);
+      const bGeo = new THREE.CylinderGeometry(0.035, 0.03, 0.5, 6);
       const braid = new THREE.Mesh(bGeo, hairMat);
       const angle = (i / 6) * Math.PI * 1.2 - Math.PI * 0.6;
       braid.position.set(
-        Math.sin(angle) * 0.13,
-        1.35,
-        -0.05 - Math.cos(angle) * 0.1
+        Math.sin(angle) * 0.18,
+        -0.15,
+        -0.1 - Math.cos(angle) * 0.15
       );
-      braid.rotation.x = 0.15;
+      braid.rotation.x = 0.2;
       group.add(braid);
     }
   } else if (style === 'bigafro') {
-    const geo = new THREE.SphereGeometry(0.22, 14, 12);
+    const geo = new THREE.SphereGeometry(0.3, 14, 12);
     const hair = new THREE.Mesh(geo, hairMat);
-    hair.scale.set(1, 0.9, 1);
-    hair.position.y = 1.65;
+    hair.scale.set(1, 0.95, 1);
+    hair.position.set(0, 0.18, 0);
     group.add(hair);
   }
 
   return group;
 }
-
 // ---------------------------------------------------------------
 // 7c. APPLY CHARACTER LOOK — tints the model
 // ---------------------------------------------------------------
@@ -1803,15 +1804,30 @@ function applyCharacterLook(character) {
     });
   }
 
-  // Add hair on top
+    // Add hair on top — attach to head bone for natural movement
   const hair = buildHair(character.hairStyle, character.hairColor);
   hair.name = '__hairGroup';
-  characterModel.add(hair);
+
+  let headBone = null;
+  characterModel.traverse((child) => {
+    if (child.isBone) {
+      const n = child.name.toLowerCase();
+      if (n.includes('head') && !n.includes('top')) {
+        headBone = child;
+      }
+    }
+  });
+
+  if (headBone) {
+    hair.position.set(0, 0.15, 0);
+    headBone.add(hair);
+  } else {
+    characterModel.add(hair);
+  }
 
   // Store the character on the model for later reference
   characterModel.userData.characterId = character.id;
 }
-
 // ---------------------------------------------------------------
 // 8. TUNING
 // ---------------------------------------------------------------
@@ -2146,7 +2162,7 @@ const SETTINGS_KEY = 'nigerianRunner.settings';
 let sfxEnabled = true;
 let musicEnabled = true;
 let gfxEnabled = true;
-let bloomEnabled = true;
+let bloomEnabled = false;
 
 function getBestScore() {
   const v = parseInt(localStorage.getItem(BEST_KEY) || '0', 10);
@@ -2542,7 +2558,7 @@ function resolveFork(side) {
 // ---------------------------------------------------------------
 // 18. SWIPE DETECTION
 // ---------------------------------------------------------------
-const SWIPE_THRESHOLD = 15;
+const SWIPE_THRESHOLD = 10;
 let touchStartX = 0;
 let touchStartY = 0;
 
