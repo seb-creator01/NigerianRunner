@@ -1721,11 +1721,14 @@ function buildHair(style, color) {
 function applyCharacterLook(character) {
   if (!characterModel) return;
 
-  // Remove any existing hair
-  const existingHair = characterModel.getObjectByName('__hairGroup');
-  if (existingHair) {
-    characterModel.remove(existingHair);
-  }
+   // Remove any existing hair — search the whole tree
+  const oldHair = [];
+  characterModel.traverse((child) => {
+    if (child.name === '__hairGroup') oldHair.push(child);
+  });
+  oldHair.forEach((h) => {
+    if (h.parent) h.parent.remove(h);
+  });
 
   // Update the base scale (for male/female size difference)
   characterModel.scale.set(character.scale, character.scale, character.scale);
