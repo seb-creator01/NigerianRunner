@@ -3085,7 +3085,8 @@ function checkCoinCollisions() {
     scene.remove(c);
     coins.splice(i, 1);
     const mult = activePowerups.double > 0 ? 2 : 1;
-    score += COIN_VALUE * mult;
+      score += COIN_VALUE * mult;
+    runCoins += 1;
     flashHud('+' + (COIN_VALUE * mult) + ' 🪙');
     playSound('coin');
   }
@@ -3102,7 +3103,8 @@ function checkPowerupPickups() {
     if (dx > 0.9) continue;
 
     const type = p.userData.type;
-    activatePowerup(type);
+        activatePowerup(type);
+    runPowerups += 1;
 
     scene.remove(p);
     powerups.splice(i, 1);
@@ -3136,6 +3138,36 @@ function gameOver() {
 // ---------------------------------------------------------------
 // 21. START / RESET / PAUSE / MENU
 // ---------------------------------------------------------------
+function gameOver() {
+  if (gameState !== 'playing') return;
+  gameState = 'gameover';
+  updatePauseBtnVisibility();
+
+  const finalScore = Math.floor(score);
+  const bestScore = getBestScore();
+
+  if (finalScore > bestScore) {
+    setBestScore(finalScore);
+    bestScoreEl.textContent = 'Best: ' + finalScore + ' (NEW!)';
+  } else {
+    bestScoreEl.textContent = 'Best: ' + bestScore;
+  }
+
+  finalScoreEl.textContent = 'Score: ' + finalScore;
+
+  // Save career stats
+  careerStats.totalCoins += runCoins;
+  careerStats.totalDistance += runDistance;
+  if (runDistance > careerStats.longestRun) {
+    careerStats.longestRun = runDistance;
+  }
+  saveCareerStats();
+
+  showScreen(gameOverEl);
+  flashHud('💥 GAME OVER');
+  playSound('crash');
+}
+
 function startRun() {
   try {
     obstacles.forEach((o) => scene.remove(o));
@@ -3171,6 +3203,9 @@ function startRun() {
     coinSpawnTimer = 0;
     powerupSpawnTimer = -4;
     score = 0;
+    runCoins = 0;
+    runDistance = 0;
+    runPowerups = 0;
 
     for (let i = 0; i < DUST_COUNT; i++) dustLife[i] = 0;
     dustGeometry.attributes.position.needsUpdate = true;
@@ -3190,6 +3225,10 @@ function startRun() {
     showScreen(null);
     updatePauseBtnVisibility();
     flashHud('Go, ' + activeCharacter.name + '! 🏃');
+
+    // Count this run in career stats
+    careerStats.totalRuns += 1;
+    saveCareerStats();
   } catch (err) {
     alert('startRun crashed: ' + err.message);
     console.error(err);
@@ -3254,6 +3293,8 @@ function resumeGame() {
   updatePauseBtnVisibility();
   flashHud('Go! 🏃');
 }
+    
+  
 
 // ---------------------------------------------------------------
 // 22. BUTTON WIRING
@@ -3617,6 +3658,12 @@ function animate() {
     score += scoreGain * delta;
     scoreEl.textContent = 'Score: ' + Math.floor(score);
 
+    // Track run distance (in meters) for missions
+    runDistance += effectiveSpeed * delta;
+
+    // Check if any missions have been completed this frame
+    checkMissionCompletions();
+
     spawnTimer += delta;
     if (spawnTimer >= SPAWN_INTERVAL) {
       spawnTimer = 0;
@@ -3704,6 +3751,9 @@ function animate() {
 }
 
 animate();
+
+    
+      
 
 // ---------------------------------------------------------------
 // 26. RESIZE
