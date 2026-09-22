@@ -3111,29 +3111,6 @@ function checkPowerupPickups() {
   }
 }
 
-// ---------------------------------------------------------------
-// 20. GAME OVER
-// ---------------------------------------------------------------
-function gameOver() {
-  if (gameState !== 'playing') return;
-  gameState = 'gameover';
-  updatePauseBtnVisibility();
-
-  const finalScore = Math.floor(score);
-  const bestScore = getBestScore();
-
-  if (finalScore > bestScore) {
-    setBestScore(finalScore);
-    bestScoreEl.textContent = 'Best: ' + finalScore + ' (NEW!)';
-  } else {
-    bestScoreEl.textContent = 'Best: ' + bestScore;
-  }
-
-  finalScoreEl.textContent = 'Score: ' + finalScore;
-  showScreen(gameOverEl);
-  flashHud('💥 GAME OVER');
-  playSound('crash');
-}
 
 // ---------------------------------------------------------------
 // 21. START / RESET / PAUSE / MENU
