@@ -299,6 +299,213 @@ const CHARACTERS = [
   },
 ];
 
+// ---------------------------------------------------------------
+// 6b2. MISSIONS SYSTEM
+// ---------------------------------------------------------------
+// Mission types — each is a template the generator uses
+const MISSION_TYPES = [
+  {
+    type: 'collectCoins',
+    title: 'Collect {N} coins',
+    desc: 'In one run',
+    baseGoal: 50,
+    stat: 'runCoins',
+    reward: 100,
+  },
+  {
+    type: 'runDistance',
+    title: 'Run {N} meters',
+    desc: 'In one run',
+    baseGoal: 500,
+    stat: 'runDistance',
+    reward: 150,
+  },
+  {
+    type: 'usePowerups',
+    title: 'Collect {N} power-ups',
+    desc: 'In one run',
+    baseGoal: 3,
+    stat: 'runPowerups',
+    reward: 200,
+  },
+  {
+    type: 'survive',
+    title: 'Survive {N} seconds',
+    desc: 'In one run',
+    baseGoal: 45,
+    stat: 'runTime',
+    reward: 150,
+  },
+  {
+    type: 'reachLevel',
+    title: 'Reach Level {N}',
+    desc: 'In one run',
+    baseGoal: 4,
+    stat: 'runLevel',
+    reward: 200,
+  },
+  {
+    type: 'collectTotal',
+    title: 'Collect {N} coins total',
+    desc: 'Across all runs',
+    baseGoal: 500,
+    stat: 'careerCoins',
+    reward: 250,
+  },
+  {
+    type: 'playRuns',
+    title: 'Play {N} runs',
+    desc: 'Across all sessions',
+    baseGoal: 10,
+    stat: 'careerRuns',
+    reward: 200,
+  },
+];
+
+// Active missions — always 3 at a time
+let activeMissions = [];
+
+// Storage keys
+const MISSIONS_KEY = 'nigerianRunner.activeMissions';
+const CAREER_KEY = 'nigerianRunner.careerStats';
+
+// Career stats — accumulate over all runs
+let careerStats = {
+  totalCoins: 0,
+  totalRuns: 0,
+  totalDistance: 0,
+  longestRun: 0,
+};
+
+// Load from localStorage on startup
+try {
+  const raw = localStorage.getItem(CAREER_KEY);
+  if (raw) careerStats = Object.assign(careerStats, JSON.parse(raw));
+} catch (e) {}
+
+try {
+  const raw = localStorage.getItem(MISSIONS_KEY);
+  if (raw) activeMissions = JSON.parse(raw);
+} catch (e) {}
+
+// Save functions
+function saveCareerStats() {
+  try {
+    localStorage.setItem(CAREER_KEY, JSON.stringify(careerStats));
+  } catch (e) {}
+}
+
+function saveActiveMissions() {
+  try {
+    localStorage.setItem(MISSIONS_KEY, JSON.stringify(activeMissions));
+  } catch (e) {}
+}
+
+// ---------------------------------------------------------------
+// MISSION GENERATION
+// ---------------------------------------------------------------
+// Pick a random mission type and scale its goal to the player's level.
+function generateMission(excludeTypes) {
+  const playerBest = getBestScore();
+  // Scale factor: 1.0 at start, grows as the player improves
+  const scale = 1 + Math.min(playerBest / 2000, 3);
+
+  // Filter out types the player already has active
+  const candidates = MISSION_TYPES.filter(
+    (t) => !excludeTypes || !excludeTypes.includes(t.type)
+  );
+  if (candidates.length === 0) candidates.push(MISSION_TYPES[0]);
+
+  const template = candidates[Math.floor(Math.random() * candidates.length)];
+
+  // Goal = base × scale × random variance
+  const variance = 0.8 + Math.random() * 0.5;
+  const goal = Math.max(1, Math.round(template.baseGoal * scale * variance));
+
+  // Special-case reachLevel (small numbers, no decimals)
+  const finalGoal = template.type === 'reachLevel'
+    ? Math.min(goal, 30)
+    : goal;
+
+  return {
+    id: template.type + '_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
+    type: template.type,
+    title: template.title.replace('{N}', finalGoal),
+    desc: template.desc,
+    stat: template.stat,
+    goal: finalGoal,
+    reward: template.reward,
+  };
+}
+
+// Build the initial 3 missions if none exist yet
+function ensureActiveMissions() {
+  if (activeMissions.length === 0) {
+    activeMissions = [];
+    const used = [];
+    for (let i = 0; i < 3; i++) {
+      const m = generateMission(used);
+      used.push(m.type);
+      activeMissions.push(m);
+    }
+    saveActiveMissions();
+  }
+}
+
+// Call on startup
+ensureActiveMissions();
+
+// Complete a mission, remove it, generate a replacement
+function completeMission(missionId) {
+  const idx = activeMissions.findIndex((m) => m.id === missionId);
+  if (idx === -1) return;
+
+  const completed = activeMissions[idx];
+
+  // Remove it
+  activeMissions.splice(idx, 1);
+
+  // Generate a new one — try to avoid the same type
+  const usedTypes = activeMissions.map((m) => m.type);
+  const newMission = generateMission(usedTypes);
+  activeMissions.push(newMission);
+
+  saveActiveMissions();
+
+  // Give the reward
+  score += completed.reward;
+  scoreEl.textContent = 'Score: ' + Math.floor(score);
+
+  // Popup + sound
+  showMissionComplete(completed.title);
+  playSound('powerup');
+}
+
+// ---------------------------------------------------------------
+// MISSION STATS HELPER
+// ---------------------------------------------------------------
+// Get the current value for a given mission stat
+function getMissionStat(stat) {
+  if (stat === 'runCoins') return runCoins;
+  if (stat === 'runDistance') return runDistance;
+  if (stat === 'runPowerups') return runPowerups;
+  if (stat === 'runTime') return runTime;
+  if (stat === 'runLevel') return speedLevel;
+  if (stat === 'careerCoins') return careerStats.totalCoins;
+  if (stat === 'careerRuns') return careerStats.totalRuns;
+  return 0;
+}
+
+// Check all active missions to see if any completed
+function checkMissionCompletions() {
+  for (const mission of activeMissions) {
+    const current = getMissionStat(mission.stat);
+    if (current >= mission.goal) {
+      completeMission(mission.id);
+      break; // one per frame is fine
+    }
+  }
+}
 // Default character (loads first every session unless user changes)
 const DEFAULT_CHARACTER_ID = 'kairo';
 const CHARACTER_STORAGE_KEY = 'nigerianRunner.selectedCharacter';
