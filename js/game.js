@@ -2325,6 +2325,7 @@ function showScreen(el) {
     pauseMenuEl,
     gameOverEl,
     characterSelectEl,
+    missionsMenuEl,
   ].forEach((o) => {
     if (o) o.classList.add('hidden');
   });
@@ -2337,6 +2338,91 @@ function updatePauseBtnVisibility() {
   } else {
     pauseBtn.classList.add('hidden');
   }
+}
+
+// ---------------------------------------------------------------
+// 12a. MISSIONS SCREEN UI
+// ---------------------------------------------------------------
+const missionsMenuEl = document.getElementById('missions-menu');
+const missionsListEl = document.getElementById('missions-list');
+const careerStatsEl = document.getElementById('career-stats');
+const missionsBtn = document.getElementById('missions-btn');
+const missionsBackBtn = document.getElementById('missions-back');
+
+function buildMissionsScreen() {
+  missionsListEl.innerHTML = '';
+
+  activeMissions.forEach((mission) => {
+    const card = document.createElement('div');
+    card.className = 'mission-card';
+
+    const current = getMissionStat(mission.stat);
+    const pct = Math.min(100, (current / mission.goal) * 100);
+
+    card.innerHTML =
+      '<div class="mission-title">' + mission.title + '</div>' +
+      '<div class="mission-desc">' + mission.desc + '</div>' +
+      '<div class="mission-progress-bar">' +
+        '<div class="mission-progress-fill" style="width:' + pct + '%"></div>' +
+      '</div>' +
+      '<div class="mission-progress-text">' +
+        Math.min(current, mission.goal) + ' / ' + mission.goal +
+      '</div>';
+
+    missionsListEl.appendChild(card);
+  });
+
+  careerStatsEl.innerHTML =
+    '<div class="stat-row"><span>🪙 Total coins</span><span class="stat-value">' +
+      careerStats.totalCoins + '</span></div>' +
+    '<div class="stat-row"><span>🏃 Total runs</span><span class="stat-value">' +
+      careerStats.totalRuns + '</span></div>' +
+    '<div class="stat-row"><span>📏 Total distance</span><span class="stat-value">' +
+      Math.floor(careerStats.totalDistance) + ' m</span></div>' +
+    '<div class="stat-row"><span>🏆 Longest run</span><span class="stat-value">' +
+      Math.floor(careerStats.longestRun) + ' m</span></div>' +
+    '<div class="stat-row"><span>⭐ Best score</span><span class="stat-value">' +
+      getBestScore() + '</span></div>';
+}
+
+function openMissionsScreen() {
+  buildMissionsScreen();
+  gameState = 'missions';
+  showScreen(missionsMenuEl);
+  updatePauseBtnVisibility();
+}
+
+function closeMissionsScreen() {
+  gameState = 'menu';
+  showScreen(mainMenuEl);
+  updatePauseBtnVisibility();
+}
+
+// ---------------------------------------------------------------
+// MISSION COMPLETE POPUP
+// ---------------------------------------------------------------
+let missionPopupEl = null;
+
+function ensureMissionPopup() {
+  if (missionPopupEl) return missionPopupEl;
+  missionPopupEl = document.createElement('div');
+  missionPopupEl.id = 'mission-popup';
+  missionPopupEl.innerHTML =
+    '<span class="popup-small">🎯 MISSION COMPLETE</span>' +
+    '<span class="popup-big"></span>';
+  document.body.appendChild(missionPopupEl);
+  return missionPopupEl;
+}
+
+function showMissionComplete(title) {
+  const el = ensureMissionPopup();
+  el.querySelector('.popup-big').textContent = title;
+  el.classList.add('show');
+
+  clearTimeout(el._hideTimer);
+  el._hideTimer = setTimeout(() => {
+    el.classList.remove('show');
+  }, 2500);
 }
 
 // ---------------------------------------------------------------
@@ -3194,6 +3280,18 @@ settingsBtn.addEventListener('click', () => {
 settingsBackBtn.addEventListener('click', () => {
   showScreen(mainMenuEl);
 });
+
+if (missionsBtn) {
+  missionsBtn.addEventListener('click', () => {
+    openMissionsScreen();
+  });
+}
+
+if (missionsBackBtn) {
+  missionsBackBtn.addEventListener('click', () => {
+    closeMissionsScreen();
+  });
+}
 
 if (characterSelectBtn) {
   characterSelectBtn.addEventListener('click', () => {
