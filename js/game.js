@@ -2250,6 +2250,11 @@ let coins;
 let powerups;
 let coinSpin;
 
+// Mission stat tracking (reset every run)
+let runCoins = 0;
+let runDistance = 0;
+let runPowerups = 0;
+
 let worldSpeed;
 let runTime;
 let speedLevel;
@@ -2257,7 +2262,6 @@ let speedLevel;
 let playerVisualY = 0;
 
 let gameState = 'loading';
-
 const activePowerups = {
   magnet: 0,
   shield: 0,
