@@ -2243,7 +2243,7 @@ const coinInnerGeometry = new THREE.CylinderGeometry(
 const coinMaterial = new THREE.MeshStandardMaterial({
   color: 0xffd633,
   emissive: 0xffaa00,
-  emissiveIntensity: 1.0,
+  emissiveIntensity: 0.5,
   metalness: 0.35,
   roughness: 0.25,
 });
@@ -2251,7 +2251,7 @@ const coinMaterial = new THREE.MeshStandardMaterial({
 const coinInnerMaterial = new THREE.MeshStandardMaterial({
   color: 0xffb300,
   emissive: 0xff9900,
-  emissiveIntensity: 0.8,
+  emissiveIntensity: 0.4,
   metalness: 0.4,
   roughness: 0.3,
 });
