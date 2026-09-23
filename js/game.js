@@ -22,25 +22,24 @@ const MUSIC_URL = 'https://seb-creator01.github.io/NovaRun/music.mp3';
 const music = new Audio(MUSIC_URL);
 music.loop = true;
 music.volume = 0.40;
+music.preload = 'auto';
+let musicWanted = false;
+
 function startMusic() {
-  console.log('[music] startMusic called. musicEnabled =', musicEnabled, '| paused =', music.paused);
-  if (musicEnabled === false) {
-    console.log('[music] skipped — musicEnabled is false');
-    return;
-  }
-  if (music.paused === false) {
-    console.log('[music] skipped — already playing');
-    return;
-  }
+  musicWanted = true;
+  if (musicEnabled === false) return;
+  if (music.paused === false) return;
+
   music.play().then(() => {
-    console.log('[music] playing!');
-  }).catch((err) => {
-    console.log('[music] play() rejected:', err.name, err.message);
+    // playing
+  }).catch(() => {
+    // Browser rejected — will retry on the next user gesture.
+    musicWanted = true;
   });
 }
 
 function stopMusic() {
-  console.log('[music] stopMusic called');
+  musicWanted = false;
   if (music.paused) return;
   music.pause();
 }
@@ -3555,18 +3554,22 @@ function unlockAudio() {
 
 touchLayer.addEventListener('touchstart', unlockAudio, { passive: true });
 
-// Start background music on the first user gesture anywhere on the page.
-// Browsers require a user gesture before audio can play.
-function firstGestureStartMusic() {
+// Try to start background music on *every* early user gesture, until it
+// actually plays. Browsers block autoplay until a real user gesture, and
+// the first attempt can also fail if the mp3 hasn't finished loading yet.
+function gestureStartMusic() {
   unlockAudio();
-  startMusic();
-  document.removeEventListener('touchstart', firstGestureStartMusic);
-  document.removeEventListener('mousedown', firstGestureStartMusic);
-  document.removeEventListener('click', firstGestureStartMusic);
+  if (!musicWanted) musicWanted = true;
+  if (musicEnabled !== false && music.paused) {
+    music.play().catch(() => {
+      // Still refused — leave the listener in place so the next tap retries.
+    });
+  }
 }
-document.addEventListener('touchstart', firstGestureStartMusic, { passive: true });
-document.addEventListener('mousedown', firstGestureStartMusic);
-document.addEventListener('click', firstGestureStartMusic);
+
+document.addEventListener('touchstart', gestureStartMusic, { passive: true });
+document.addEventListener('mousedown', gestureStartMusic);
+document.addEventListener('click', gestureStartMusic);
 touchLayer.addEventListener('mousedown', unlockAudio);
 
 function playBeep(frequency, duration, type = 'sine', volume = 0.15) {
