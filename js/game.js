@@ -2233,13 +2233,26 @@ const COIN_Y_AIR = 3.0;
 const COIN_SPIN_SPEED = 4;
 
 const coinGeometry = new THREE.CylinderGeometry(
-  COIN_RADIUS, COIN_RADIUS, 0.12, 16
+  COIN_RADIUS, COIN_RADIUS, 0.22, 24
 );
+
+const coinInnerGeometry = new THREE.CylinderGeometry(
+  COIN_RADIUS * 0.65, COIN_RADIUS * 0.65, 0.235, 24
+);
+
 const coinMaterial = new THREE.MeshStandardMaterial({
-  color: 0xffcc00,
+  color: 0xffd633,
   emissive: 0xffaa00,
-  emissiveIntensity: 0.9,
-  metalness: 0.7,
+  emissiveIntensity: 1.6,
+  metalness: 0.35,
+  roughness: 0.25,
+});
+
+const coinInnerMaterial = new THREE.MeshStandardMaterial({
+  color: 0xffb300,
+  emissive: 0xff9900,
+  emissiveIntensity: 1.2,
+  metalness: 0.4,
   roughness: 0.3,
 });
 
@@ -2863,8 +2876,16 @@ function spawnObstacleRow() {
 // 16. COIN SPAWNING
 // ---------------------------------------------------------------
 function makeCoin() {
-  const coin = new THREE.Mesh(coinGeometry, coinMaterial);
-  coin.rotation.x = Math.PI / 2;
+  const coin = new THREE.Group();
+
+  const outer = new THREE.Mesh(coinGeometry, coinMaterial);
+  outer.rotation.x = Math.PI / 2;
+  coin.add(outer);
+
+  const inner = new THREE.Mesh(coinInnerGeometry, coinInnerMaterial);
+  inner.rotation.x = Math.PI / 2;
+  coin.add(inner);
+
   return coin;
 }
 
