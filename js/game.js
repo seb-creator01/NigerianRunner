@@ -2213,7 +2213,7 @@ const SPEED_INCREASE_PER_SECOND = 0.3;
 // ---------------------------------------------------------------
 const SPAWN_Z = -80;
 const DESPAWN_Z = 15;
-const SPAWN_INTERVAL = 1.3;
+const SPAWN_INTERVAL = 0.9;
 
 const TYRE_STACK_HEIGHT = 0.85;
 const AWNING_BOTTOM = 1.4;
@@ -2847,7 +2847,7 @@ function spawnObstacleRow() {
   if (forkActive) return;
 
   const lanes = [0, 1, 2];
-  const blockedCount = Math.random() < 0.6 ? 1 : 2;
+    const blockedCount = Math.random() < 0.4 ? 1 : 2;
 
   for (let i = lanes.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
