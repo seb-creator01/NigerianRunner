@@ -15,6 +15,27 @@ import { VignetteShader } from 'three/addons/shaders/VignetteShader.js';
 const BEST_KEY = 'novarun.bestScore';
 const SETTINGS_KEY = 'novarun.settings';
 
+// Background music — plays continuously across all screens.
+// Browsers block autoplay until the first user gesture, so
+// we start it on the first tap/click anywhere on the page.
+const MUSIC_URL = 'https://seb-creator01.github.io/NovaRun/music.mp3';
+const music = new Audio(MUSIC_URL);
+music.loop = true;
+music.volume = 0.40;
+
+function startMusic() {
+  if (!musicEnabled) return;
+  if (music.paused === false) return;
+  music.play().catch(() => {
+    // Browser refused to play — will retry on next user gesture.
+  });
+}
+
+function stopMusic() {
+  if (music.paused) return;
+  music.pause();
+}
+
 // ---------------------------------------------------------------
 // 0b. ONE-TIME MIGRATION — copies old "nigerianRunner.*" localStorage
 // values into the new "novarun.*" namespace so existing player
@@ -3442,6 +3463,12 @@ toggleMusicBtn.addEventListener('click', () => {
   musicEnabled = !musicEnabled;
   saveSettings();
   updateSettingsUI();
+
+  if (musicEnabled) {
+    startMusic();
+  } else {
+    stopMusic();
+  }
 });
 
 toggleGfxBtn.addEventListener('click', () => {
@@ -3517,6 +3544,19 @@ function unlockAudio() {
 }
 
 touchLayer.addEventListener('touchstart', unlockAudio, { passive: true });
+
+// Start background music on the first user gesture anywhere on the page.
+// Browsers require a user gesture before audio can play.
+function firstGestureStartMusic() {
+  unlockAudio();
+  startMusic();
+  document.removeEventListener('touchstart', firstGestureStartMusic);
+  document.removeEventListener('mousedown', firstGestureStartMusic);
+  document.removeEventListener('click', firstGestureStartMusic);
+}
+document.addEventListener('touchstart', firstGestureStartMusic, { passive: true });
+document.addEventListener('mousedown', firstGestureStartMusic);
+document.addEventListener('click', firstGestureStartMusic);
 touchLayer.addEventListener('mousedown', unlockAudio);
 
 function playBeep(frequency, duration, type = 'sine', volume = 0.15) {
