@@ -10,6 +10,21 @@ import { FXAAShader } from 'three/addons/shaders/FXAAShader.js';
 import { VignetteShader } from 'three/addons/shaders/VignetteShader.js';
 
 // ---------------------------------------------------------------
+// 0. GLOBAL CONSTANTS — must be defined first, used everywhere
+// ---------------------------------------------------------------
+const BEST_KEY = 'nigerianRunner.bestScore';
+const SETTINGS_KEY = 'nigerianRunner.settings';
+
+function getBestScore() {
+  const v = parseInt(localStorage.getItem(BEST_KEY) || '0', 10);
+  return isNaN(v) ? 0 : v;
+}
+
+function setBestScore(v) {
+  localStorage.setItem(BEST_KEY, String(v));
+}
+
+// ---------------------------------------------------------------
 // 1. RENDERER
 // ---------------------------------------------------------------
 const container = document.getElementById('game-container');
@@ -2564,22 +2579,10 @@ function deactivatePowerup(name) {
 // ---------------------------------------------------------------
 // 13. SETTINGS
 // ---------------------------------------------------------------
-const BEST_KEY = 'nigerianRunner.bestScore';
-const SETTINGS_KEY = 'nigerianRunner.settings';
-
 let sfxEnabled = true;
 let musicEnabled = true;
 let gfxEnabled = true;
 let bloomEnabled = false;
-
-function getBestScore() {
-  const v = parseInt(localStorage.getItem(BEST_KEY) || '0', 10);
-  return isNaN(v) ? 0 : v;
-}
-
-function setBestScore(v) {
-  localStorage.setItem(BEST_KEY, String(v));
-}
 
 function loadSettings() {
   try {
@@ -2614,7 +2617,6 @@ function updateSettingsUI() {
   fxaaPass.enabled = gfxEnabled;
   bloomPass.enabled = bloomEnabled;
 }
-
 // ---------------------------------------------------------------
 // 14. CHARACTER LOADING
 // ---------------------------------------------------------------
