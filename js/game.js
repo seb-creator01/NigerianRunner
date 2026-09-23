@@ -2880,25 +2880,62 @@ function spawnCoinLine(lane, zStart, count, yLevel) {
   }
 }
 
-function spawnCoins() {
-  const lanes = [0, 1, 2];
-  for (let i = lanes.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [lanes[i], lanes[j]] = [lanes[j], lanes[i]];
+function spawnStraightTrail(lane) {
+  const count = 4 + Math.floor(Math.random() * 3);
+  const yLevel = Math.random() < 0.7 ? COIN_Y_GROUND : COIN_Y_AIR;
+  spawnCoinLine(lane, SPAWN_Z - 5, count, yLevel);
+}
+
+function spawnArcTrail(lane) {
+  const count = 5 + Math.floor(Math.random() * 2);
+  const peakHeight = COIN_Y_AIR + 0.6;
+  const baseZ = SPAWN_Z - 5;
+
+  for (let i = 0; i < count; i++) {
+    const coin = makeCoin();
+    const t = i / (count - 1);
+    const arc = Math.sin(t * Math.PI);
+
+    coin.position.x = LANE_X[lane];
+    coin.position.z = baseZ - i * COIN_ROW_SPACING;
+    coin.position.y = COIN_Y_GROUND + arc * (peakHeight - COIN_Y_GROUND);
+    coin.userData.baseY = coin.position.y;
+    scene.add(coin);
+    coins.push(coin);
   }
+}
 
-  const coinLaneCount = Math.random() < 0.5 ? 1 : 2;
-  const chosenLanes = lanes.slice(0, coinLaneCount);
+function spawnDiagonalTrail(startLane) {
+  const otherLanes = [0, 1, 2].filter((l) => l !== startLane);
+  const endLane = otherLanes[Math.floor(Math.random() * otherLanes.length)];
+  const count = 5 + Math.floor(Math.random() * 2);
+  const baseZ = SPAWN_Z - 5;
 
-  chosenLanes.forEach((lane) => {
-    const count = 3 + Math.floor(Math.random() * 3);
-    const heightChoice = Math.random();
-    let yLevel;
-    if (heightChoice < 0.6) yLevel = COIN_Y_GROUND;
-    else                    yLevel = COIN_Y_AIR;
+  for (let i = 0; i < count; i++) {
+    const coin = makeCoin();
+    const t = i / (count - 1);
+    const laneFloat = startLane + (endLane - startLane) * t;
 
-    spawnCoinLine(lane, SPAWN_Z - 5, count, yLevel);
-  });
+    coin.position.x = LANE_X[laneFloat];
+    coin.position.z = baseZ - i * COIN_ROW_SPACING;
+    coin.position.y = COIN_Y_GROUND;
+    coin.userData.baseY = COIN_Y_GROUND;
+    scene.add(coin);
+    coins.push(coin);
+  }
+}
+
+function spawnCoins() {
+  const lane = Math.floor(Math.random() * 3);
+  const roll = Math.random();
+
+  if (roll < 0.5) {
+    spawnStraightTrail(lane);
+  } else if (roll < 0.75) {
+    spawnArcTrail(lane);
+  } else {
+    spawnDiagonalTrail(lane);
+  }
 }
 
 // ---------------------------------------------------------------
