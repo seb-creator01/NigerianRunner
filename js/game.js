@@ -2332,6 +2332,7 @@ document.body.appendChild(debug);
 const powerupHud = document.getElementById('powerup-hud');
 
 const scoreEl = document.getElementById('score');
+const coinCounterEl = document.getElementById('coin-counter');
 const loadingScreenEl = document.getElementById('loading-screen');
 const loadingBarFillEl = document.getElementById('loading-bar-fill');
 const loadingTextEl = document.getElementById('loading-text');
@@ -2377,7 +2378,8 @@ function showScreen(el) {
   ].forEach((o) => {
     if (o) o.classList.add('hidden');
   });
-  if (el) el.classList.remove('hidden');
+    if (el) el.classList.remove('hidden');
+  if (coinCounterEl) coinCounterEl.style.display = el ? 'none' : 'block';
 }
 
 function updatePauseBtnVisibility() {
@@ -3120,7 +3122,13 @@ function checkCoinCollisions() {
     coins.splice(i, 1);
     const mult = activePowerups.double > 0 ? 2 : 1;
       score += COIN_VALUE * mult;
-    runCoins += 1;
+        runCoins += 1;
+    if (coinCounterEl) {
+      coinCounterEl.textContent = '🪙 ' + runCoins;
+      coinCounterEl.classList.remove('pop');
+      void coinCounterEl.offsetWidth;
+      coinCounterEl.classList.add('pop');
+    }
     flashHud('+' + (COIN_VALUE * mult) + ' 🪙');
     playSound('coin');
   }
@@ -3214,7 +3222,8 @@ function startRun() {
     coinSpawnTimer = 0;
     powerupSpawnTimer = -4;
     score = 0;
-    runCoins = 0;
+        runCoins = 0;
+    if (coinCounterEl) coinCounterEl.textContent = '🪙 0';
     runDistance = 0;
     runPowerups = 0;
 
