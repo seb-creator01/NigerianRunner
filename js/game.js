@@ -12,8 +12,41 @@ import { VignetteShader } from 'three/addons/shaders/VignetteShader.js';
 // ---------------------------------------------------------------
 // 0. GLOBAL CONSTANTS — must be defined first, used everywhere
 // ---------------------------------------------------------------
-const BEST_KEY = 'nigerianRunner.bestScore';
-const SETTINGS_KEY = 'nigerianRunner.settings';
+const BEST_KEY = 'novarun.bestScore';
+const SETTINGS_KEY = 'novarun.settings';
+
+// ---------------------------------------------------------------
+// 0b. ONE-TIME MIGRATION — copies old "nigerianRunner.*" localStorage
+// values into the new "novarun.*" namespace so existing player
+// progress (best score, settings, character, missions, career stats)
+// is preserved after the rename.
+// Runs once, then never again.
+// ---------------------------------------------------------------
+(function migrateStorageKeys() {
+  try {
+    if (localStorage.getItem('novarun.migrated') === '1') return;
+
+    const KEY_MAP = {
+      'nigerianRunner.bestScore':         'novarun.bestScore',
+      'nigerianRunner.settings':          'novarun.settings',
+      'nigerianRunner.selectedCharacter': 'novarun.selectedCharacter',
+      'nigerianRunner.activeMissions':    'novarun.activeMissions',
+      'nigerianRunner.careerStats':       'novarun.careerStats',
+    };
+
+    Object.keys(KEY_MAP).forEach((oldKey) => {
+      const newKey = KEY_MAP[oldKey];
+      const oldVal = localStorage.getItem(oldKey);
+      if (oldVal !== null && localStorage.getItem(newKey) === null) {
+        localStorage.setItem(newKey, oldVal);
+      }
+    });
+
+    localStorage.setItem('novarun.migrated', '1');
+  } catch (e) {
+    // If migration fails for any reason, just carry on with fresh keys.
+  }
+})();
 
 function getBestScore() {
   const v = parseInt(localStorage.getItem(BEST_KEY) || '0', 10);
@@ -381,8 +414,8 @@ const MISSION_TYPES = [
 let activeMissions = [];
 
 // Storage keys
-const MISSIONS_KEY = 'nigerianRunner.activeMissions';
-const CAREER_KEY = 'nigerianRunner.careerStats';
+const MISSIONS_KEY = 'novarun.activeMissions';
+const CAREER_KEY = 'novarun.careerStats';
 
 // Career stats — accumulate over all runs
 let careerStats = {
@@ -523,7 +556,7 @@ function checkMissionCompletions() {
 }
 // Default character (loads first every session unless user changes)
 const DEFAULT_CHARACTER_ID = 'kairo';
-const CHARACTER_STORAGE_KEY = 'nigerianRunner.selectedCharacter';
+const CHARACTER_STORAGE_KEY = 'novarun.selectedCharacter';
 
 // Read the currently-selected character from localStorage
 function getSelectedCharacterId() {
