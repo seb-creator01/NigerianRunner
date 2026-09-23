@@ -94,8 +94,8 @@ scene.fog = new THREE.Fog(0xf5c98a, OPEN_FOG_NEAR, OPEN_FOG_FAR);
 
 // HDRI ENVIRONMENT LIGHTING
 const HDRI_URL =
-  'https://seb-creator01.github.io/NigerianRunner/venice_sunset_1k.hdr';
-
+  'https://seb-creator01.github.io/NovaRun/venice_sunset_1k.hdr';
+  
 const hdriLoader = new RGBELoader();
 hdriLoader.load(HDRI_URL, (hdrTexture) => {
   hdrTexture.mapping = THREE.EquirectangularReflectionMapping;
@@ -2653,8 +2653,7 @@ function updateSettingsUI() {
 // ---------------------------------------------------------------
 // 14. CHARACTER LOADING
 // ---------------------------------------------------------------
-const CHARACTER_URL = 'https://seb-creator01.github.io/NigerianRunner/UAL1_Standard.glb';
-
+const CHARACTER_URL = 'https://seb-creator01.github.io/NovaRun/UAL1_Standard.glb';
 const CHARACTER_ROTATION_Y = Math.PI;
 const ANIM_RUN = 'Jog_Fwd_Loop';
 
