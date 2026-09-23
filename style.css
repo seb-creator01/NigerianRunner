@@ -64,6 +64,31 @@ html, body {
   pointer-events: none;
 }
 
+#coin-counter {
+  position: fixed;
+  top: 20px;
+  left: 16px;
+  color: #ffffff;
+  background: rgba(0, 0, 0, 0.55);
+  padding: 10px 18px;
+  border-radius: 8px;
+  font-size: 18px;
+  font-weight: bold;
+  z-index: 10;
+  pointer-events: none;
+  transform-origin: left center;
+}
+
+#coin-counter.pop {
+  animation: coinPop 0.15s ease-out;
+}
+
+@keyframes coinPop {
+  0%   { transform: scale(1); }
+  50%  { transform: scale(1.2); }
+  100% { transform: scale(1); }
+}
+
 #pause-btn {
   position: fixed;
   top: 20px;
