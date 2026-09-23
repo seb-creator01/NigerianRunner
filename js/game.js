@@ -22,19 +22,29 @@ const MUSIC_URL = 'https://seb-creator01.github.io/NovaRun/music.mp3';
 const music = new Audio(MUSIC_URL);
 music.loop = true;
 music.volume = 0.40;
-
 function startMusic() {
-  if (!musicEnabled) return;
-  if (music.paused === false) return;
-  music.play().catch(() => {
-    // Browser refused to play — will retry on next user gesture.
+  console.log('[music] startMusic called. musicEnabled =', musicEnabled, '| paused =', music.paused);
+  if (musicEnabled === false) {
+    console.log('[music] skipped — musicEnabled is false');
+    return;
+  }
+  if (music.paused === false) {
+    console.log('[music] skipped — already playing');
+    return;
+  }
+  music.play().then(() => {
+    console.log('[music] playing!');
+  }).catch((err) => {
+    console.log('[music] play() rejected:', err.name, err.message);
   });
 }
 
 function stopMusic() {
+  console.log('[music] stopMusic called');
   if (music.paused) return;
   music.pause();
 }
+
 
 // ---------------------------------------------------------------
 // 0b. ONE-TIME MIGRATION — copies old "nigerianRunner.*" localStorage
