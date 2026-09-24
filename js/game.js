@@ -215,7 +215,7 @@ function setBestScore(v) {
 const container = document.getElementById('game-container');
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.0));
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 0.8));
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.domElement.style.position = 'absolute';
 renderer.domElement.style.top = '0';
