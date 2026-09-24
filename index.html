@@ -7,6 +7,11 @@
   <meta name="theme-color" content="#d96c14" />
   <title>Nova Run</title>
   <link rel="stylesheet" href="style.css" />
+  <link rel="manifest" href="manifest.json" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Nova Run" />
+  <link rel="apple-touch-icon" href="icon-192.png" />
    <link rel="preload" href="https://seb-creator01.github.io/NovaRun/UAL1_Standard.glb"
         as="fetch" crossorigin="anonymous" />
 </head>
@@ -145,5 +150,18 @@
   </script>
 
   <script type="module" src="js/game.js"></script>
+
+  <!-- PWA: register the service worker -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('sw.js').then((reg) => {
+          console.log('[pwa] service worker registered:', reg.scope);
+        }).catch((err) => {
+          console.warn('[pwa] service worker registration failed:', err);
+        });
+      });
+    }
+  </script>
 </body>
 </html>
