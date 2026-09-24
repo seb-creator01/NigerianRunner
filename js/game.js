@@ -44,6 +44,129 @@ function stopMusic() {
   music.pause();
 }
 
+// ---------------------------------------------------------------
+// 0c. PWA INSTALL BANNER
+// ---------------------------------------------------------------
+// Shows on the main menu, every open, until the user either
+// installs the game or dismisses the banner 5 times.
+const INSTALL_DISMISS_KEY = 'novarun.installDismissals';
+const INSTALL_DISMISS_MAX = 5;
+let deferredInstallPrompt = null;
+
+function getInstallDismissCount() {
+  try {
+    return parseInt(localStorage.getItem(INSTALL_DISMISS_KEY) || '0', 10) || 0;
+  } catch (e) {
+    return 0;
+  }
+}
+
+function incrementInstallDismissCount() {
+  try {
+    const next = getInstallDismissCount() + 1;
+    localStorage.setItem(INSTALL_DISMISS_KEY, String(next));
+  } catch (e) {}
+}
+
+function isInstalled() {
+  if (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) {
+    return true;
+  }
+  if (window.navigator.standalone === true) {
+    return true;
+  }
+  return false;
+}
+
+function isIOSDevice() {
+  const ua = window.navigator.userAgent || '';
+  return /iPad|iPhone|iPod/.test(ua) && !window.MSStream;
+}
+
+function isMobileDevice() {
+  return isIOSDevice() || /Android/i.test(window.navigator.userAgent || '');
+}
+
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredInstallPrompt = e;
+});
+
+function showInstallBanner() {
+  const banner = document.getElementById('install-banner');
+  if (!banner) return;
+  if (isInstalled()) return;
+  if (!isMobileDevice()) return;
+  if (getInstallDismissCount() >= INSTALL_DISMISS_MAX) return;
+
+  const subEl = document.getElementById('install-banner-sub');
+  if (subEl) {
+    if (isIOSDevice()) {
+      subEl.textContent = 'Tap Install to see how';
+    } else {
+      subEl.textContent = 'Play offline, launch fullscreen';
+    }
+  }
+
+  banner.classList.remove('hidden');
+}
+
+function hideInstallBanner() {
+  const banner = document.getElementById('install-banner');
+  if (!banner) return;
+  banner.classList.add('hidden');
+}
+
+function showIOSInstallPopup() {
+  let popup = document.getElementById('install-ios-popup');
+  if (!popup) {
+    popup = document.createElement('div');
+    popup.id = 'install-ios-popup';
+    popup.innerHTML =
+      '<div class="ios-card">' +
+        '<h3>Install Nova Run</h3>' +
+        '<ol>' +
+          '<li>Tap the <strong>Share</strong> button in Safari (the square with an up arrow).</li>' +
+          '<li>Scroll down and tap <strong>Add to Home Screen</strong>.</li>' +
+          '<li>Tap <strong>Add</strong> in the top right.</li>' +
+        '</ol>' +
+        '<button id="install-ios-ok">Got it</button>' +
+      '</div>';
+    document.body.appendChild(popup);
+    popup.querySelector('#install-ios-ok').addEventListener('click', () => {
+      popup.classList.add('hidden');
+    });
+  }
+  popup.classList.remove('hidden');
+}
+
+function wireInstallBanner() {
+  const yesBtn = document.getElementById('install-banner-yes');
+  const noBtn = document.getElementById('install-banner-no');
+  if (!yesBtn || !noBtn) return;
+
+  yesBtn.addEventListener('click', async () => {
+    if (deferredInstallPrompt) {
+      deferredInstallPrompt.prompt();
+      try {
+        await deferredInstallPrompt.userChoice;
+      } catch (e) {}
+      deferredInstallPrompt = null;
+      hideInstallBanner();
+    } else if (isIOSDevice()) {
+      showIOSInstallPopup();
+    } else {
+      hideInstallBanner();
+    }
+  });
+
+  noBtn.addEventListener('click', () => {
+    incrementInstallDismissCount();
+    hideInstallBanner();
+  });
+}
+
+wireInstallBanner();
 
 // ---------------------------------------------------------------
 // 0b. ONE-TIME MIGRATION — copies old "nigerianRunner.*" localStorage
@@ -86,7 +209,6 @@ function getBestScore() {
 function setBestScore(v) {
   localStorage.setItem(BEST_KEY, String(v));
 }
-
 // ---------------------------------------------------------------
 // 1. RENDERER
 // ---------------------------------------------------------------
@@ -3511,6 +3633,21 @@ restartBtn.addEventListener('click', () => {
 menuBtn.addEventListener('click', () => {
   goToMainMenu();
 });
+
+// ---------------------------------------------------------------
+// 22b. SHOW INSTALL BANNER ON MAIN MENU
+// ---------------------------------------------------------------
+// The main menu is the "opened the game" moment. Show the banner
+// every time it appears, subject to the rules in showInstallBanner.
+const _originalShowScreen = showScreen;
+showScreen = function (el) {
+  _originalShowScreen(el);
+  if (el === mainMenuEl) {
+    setTimeout(showInstallBanner, 400);
+  } else {
+    hideInstallBanner();
+  }
+};
 
 // ---------------------------------------------------------------
 // 23. INITIALIZE
