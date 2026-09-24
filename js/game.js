@@ -1829,8 +1829,8 @@ function applyFogForType(type) {
     targetFogFar = 80;
     targetFogColor = 0xc8dce8;
     targetBgColor = 0xc8dce8;
-    targetAmbient = 0.15;
-    targetSun = 0.42;
+    targetAmbient = 0.28;
+    targetSun = 0.60;
   } else {
     targetFogNear = OPEN_FOG_NEAR;
     targetFogFar = OPEN_FOG_FAR;
