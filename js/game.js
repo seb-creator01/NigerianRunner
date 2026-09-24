@@ -2924,7 +2924,11 @@ function makeTyreStack() {
   const group = new THREE.Group();
 
   const tyreGeo = new THREE.TorusGeometry(0.4, 0.16, 8, 16);
-  const tyreMat = new THREE.MeshStandardMaterial({ color: 0x1a1a1a });
+  const tyreMat = new THREE.MeshStandardMaterial({
+    color: 0x2f2f2f,
+    roughness: 0.7,
+    metalness: 0.05,
+  });
 
   const count = 4;
   for (let i = 0; i < count; i++) {
@@ -2936,6 +2940,18 @@ function makeTyreStack() {
     group.add(tyre);
   }
 
+  // Bright yellow warning band so the stack is visible on any background
+  const bandGeo = new THREE.TorusGeometry(0.42, 0.05, 8, 20);
+  const bandMat = new THREE.MeshStandardMaterial({
+    color: 0xffdd44,
+    emissive: 0xffaa00,
+    emissiveIntensity: 0.9,
+  });
+  const band = new THREE.Mesh(bandGeo, bandMat);
+  band.rotation.x = Math.PI / 2;
+  band.position.y = 0.5;
+  group.add(band);
+
   const ropeGeo = new THREE.BoxGeometry(0.9, 0.02, 0.02);
   const ropeMat = new THREE.MeshStandardMaterial({ color: 0x8b6b3a });
   const rope = new THREE.Mesh(ropeGeo, ropeMat);
@@ -2944,7 +2960,6 @@ function makeTyreStack() {
 
   return group;
 }
-
 function makeAwning() {
   const group = new THREE.Group();
 
