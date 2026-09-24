@@ -3705,7 +3705,20 @@ function unlockAudio() {
 }
 
 touchLayer.addEventListener('touchstart', unlockAudio, { passive: true });
-
+// Pause background music when the page is hidden (user switches apps,
+// locks the phone, or changes tabs). Resume when they come back, but
+// only if music was enabled in settings.
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) {
+    if (music.paused === false) {
+      music.pause();
+    }
+  } else {
+    if (musicEnabled && music.paused) {
+      startMusic();
+    }
+  }
+});
 // Try to start background music on *every* early user gesture, until it
 // actually plays. Browsers block autoplay until a real user gesture, and
 // the first attempt can also fail if the mp3 hasn't finished loading yet.
