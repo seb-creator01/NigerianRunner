@@ -2925,9 +2925,11 @@ function makeTyreStack() {
 
   const tyreGeo = new THREE.TorusGeometry(0.4, 0.16, 8, 16);
   const tyreMat = new THREE.MeshStandardMaterial({
-    color: 0x2f2f2f,
-    roughness: 0.7,
-    metalness: 0.05,
+    color: 0x5a5a5a,
+    emissive: 0x222222,
+    emissiveIntensity: 0.6,
+    roughness: 0.6,
+    metalness: 0.1,
   });
 
   const count = 4;
@@ -2940,17 +2942,23 @@ function makeTyreStack() {
     group.add(tyre);
   }
 
-  // Bright yellow warning band so the stack is visible on any background
-  const bandGeo = new THREE.TorusGeometry(0.42, 0.05, 8, 20);
+  // Bright yellow warning bands so the stack is visible on any background
+  const bandGeo = new THREE.TorusGeometry(0.42, 0.09, 8, 20);
   const bandMat = new THREE.MeshStandardMaterial({
     color: 0xffdd44,
     emissive: 0xffaa00,
-    emissiveIntensity: 0.9,
+    emissiveIntensity: 1.4,
   });
-  const band = new THREE.Mesh(bandGeo, bandMat);
-  band.rotation.x = Math.PI / 2;
-  band.position.y = 0.5;
-  group.add(band);
+
+  const bandBottom = new THREE.Mesh(bandGeo, bandMat);
+  bandBottom.rotation.x = Math.PI / 2;
+  bandBottom.position.y = 0.32;
+  group.add(bandBottom);
+
+  const bandTop = new THREE.Mesh(bandGeo, bandMat);
+  bandTop.rotation.x = Math.PI / 2;
+  bandTop.position.y = 0.68;
+  group.add(bandTop);
 
   const ropeGeo = new THREE.BoxGeometry(0.9, 0.02, 0.02);
   const ropeMat = new THREE.MeshStandardMaterial({ color: 0x8b6b3a });
