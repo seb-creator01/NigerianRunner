@@ -2637,9 +2637,8 @@ function showMissionComplete(title) {
   clearTimeout(el._hideTimer);
   el._hideTimer = setTimeout(() => {
     el.classList.remove('show');
-  }, 2500);
+  }, 1600);
 }
-
 // ---------------------------------------------------------------
 // 12b. CHARACTER SELECTION SCREEN
 // ---------------------------------------------------------------
