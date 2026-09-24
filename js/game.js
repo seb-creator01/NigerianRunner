@@ -2351,7 +2351,7 @@ function applyCharacterLook(character) {
 // ---------------------------------------------------------------
 const GROUND_Y = 0;
 const GRAVITY = -32;
-const JUMP_VELOCITY = 17;
+const JUMP_VELOCITY = 13;
 const SLIDE_DURATION = 0.9;
 const SLIDE_HEIGHT_SCALE = 0.4;
 const LANE_SLIDE_SPEED = 22;
